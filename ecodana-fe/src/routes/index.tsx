@@ -1,12 +1,15 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import BookingConfirmationPage from '../pages/BookingConfirmationPage';
+import BookingCheckoutPage from '../pages/BookingCheckoutPage';
+import BookingPaymentPage from '../pages/BookingPaymentPage';
 import ComingSoonPage from '../pages/ComingSoonPage';
 import FavoritesPage from '../pages/FavoritesPage';
 import HomePage from '../pages/HomePage';
 import LoginPage from '../pages/LoginPage';
 import MyBookingsPage from '../pages/MyBookingsPage';
 import OwnerDashboardPage from '../pages/OwnerDashboardPage';
+import PaymentReturnPage from '../pages/PaymentReturnPage';
 import VehicleDetailPage from '../pages/VehicleDetailPage';
 import VehicleListPage from '../pages/VehicleListPage';
 import ProtectedRoute from './ProtectedRoute';
@@ -24,6 +27,31 @@ const AppRouter = () => {
 
           <Route path="vehicles" element={<VehicleListPage />} />
           <Route path="vehicles/:id" element={<VehicleDetailPage />} />
+
+          <Route
+            path="booking/checkout"
+            element={
+              <ProtectedRoute>
+                <BookingCheckoutPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="booking/payment/:bookingId"
+            element={
+              <ProtectedRoute>
+                <BookingPaymentPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="payment/payos-return"
+            element={
+              <ProtectedRoute>
+                <PaymentReturnPage />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="booking/my-bookings"
