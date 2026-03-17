@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { login as loginApi, logout as logoutApi } from '../api/authApi';
+import { getMyProfile, login as loginApi, logout as logoutApi } from '../api/authApi';
 import type { LoginRequest } from '../types/auth';
 import type { UserProfile } from '../types/user';
 import { authStorage } from '../utils/storage';
@@ -22,6 +22,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     authStorage.setUser(authPayload.user);
     setToken(authPayload.accessToken);
     setUser(authPayload.user);
+    return authPayload.user;
+  }, []);
+
+  const completeOAuthLogin = useCallback(async (nextToken: string) => {
+    authStorage.setToken(nextToken);
+    setToken(nextToken);
+    const profile = await getMyProfile();
+    authStorage.setUser(profile);
+    setUser(profile);
+    return profile;
   }, []);
 
   const setCurrentUser = useCallback((nextUser: UserProfile) => {
@@ -47,10 +57,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       user,
       isAuthenticated: Boolean(token),
       login,
+      completeOAuthLogin,
       logout,
       setCurrentUser,
     }),
-    [token, user, login, logout, setCurrentUser],
+    [token, user, login, completeOAuthLogin, logout, setCurrentUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

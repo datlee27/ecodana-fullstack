@@ -7,12 +7,14 @@ import com.ecodana.evodanavn1.model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.ecodana.evodanavn1.security.CustomOAuth2UserService.CustomOidcUser;
 import com.ecodana.evodanavn1.service.RoleService;
@@ -21,7 +23,6 @@ import com.ecodana.evodanavn1.service.UserService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
 @Component
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
@@ -31,12 +32,20 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final UserService userService;
     private final RoleService roleService;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final String frontendUrl;
 
     @Autowired
-    public OAuth2LoginSuccessHandler(UserService userService, RoleService roleService, PasswordEncoder passwordEncoder) {
+    public OAuth2LoginSuccessHandler(UserService userService,
+                                     RoleService roleService,
+                                     PasswordEncoder passwordEncoder,
+                                     JwtTokenProvider jwtTokenProvider,
+                                     @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl) {
         this.userService = userService;
         this.roleService = roleService;
         this.passwordEncoder = passwordEncoder;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.frontendUrl = frontendUrl;
     }
 
     @Override
@@ -58,14 +67,14 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 user = userService.findUserByLogin(loginProvider, oauth2User.getName()).orElse(null);
             } else {
                 logger.error("Invalid principal type in OAuth2LoginSuccessHandler: {}", principal.getClass().getName());
-                response.sendRedirect("/login?error=invalid_principal");
+                response.sendRedirect(buildFrontendErrorUrl("invalid_principal"));
                 return;
             }
 
             String email = oauth2User.getAttribute("email");
             if (email == null || email.isEmpty()) {
                 logger.warn("OAuth2 login attempt without email from provider: {}", loginProvider);
-                response.sendRedirect("/login?error=no_email");
+                response.sendRedirect(buildFrontendErrorUrl("no_email"));
                 return;
             }
 
@@ -129,43 +138,48 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             // Final checks and redirection
             if (user.getStatus() == User.UserStatus.Banned) {
                 logger.warn("Banned user login attempt: {}", user.getEmail());
-                response.sendRedirect("/login?error=account_banned");
+                response.sendRedirect(buildFrontendErrorUrl("account_banned"));
                 return;
             }
 
             if (user.getStatus() == User.UserStatus.Inactive) {
                 logger.warn("Inactive user login attempt: {}", user.getEmail());
-                response.sendRedirect("/login?error=account_inactive");
+                response.sendRedirect(buildFrontendErrorUrl("account_inactive"));
                 return;
             }
 
-            HttpSession session = request.getSession(true);
-
             User userWithRole = userService.findByIdWithRole(user.getId());
-            session.setAttribute("currentUser", userWithRole);
+            if (userWithRole == null) {
+                logger.error("OAuth2 login succeeded but user could not be loaded with role: {}", user.getEmail());
+                response.sendRedirect(buildFrontendErrorUrl("user_not_found"));
+                return;
+            }
 
+            String token = jwtTokenProvider.generateToken(userWithRole);
             String roleName = userWithRole.getRoleName();
-            String displayName = userWithRole.getFirstName() != null && !userWithRole.getFirstName().isEmpty() ? userWithRole.getFirstName() : userWithRole.getUsername();
-
             logger.info("User {} logged in successfully with role {}", user.getEmail(), roleName);
 
-            if ("Admin".equalsIgnoreCase(roleName)) {
-                session.setAttribute("flash_success", "🎉 Đăng nhập thành công! Chào mừng Admin " + displayName + "!");
-                response.sendRedirect("/admin");
-            } else if ("Owner".equalsIgnoreCase(roleName)) {
-                session.setAttribute("flash_success", "🎉 Đăng nhập thành công! Chào mừng Owner " + displayName + "!");
-                response.sendRedirect("/owner/dashboard");
-            } else if ("Staff".equalsIgnoreCase(roleName)) {
-                session.setAttribute("flash_success", "🎉 Đăng nhập thành công! Chào mừng Staff " + displayName + "!");
-                response.sendRedirect("/staff");
-            } else {
-                session.setAttribute("flash_success", "🎉 Đăng nhập thành công! Chào mừng " + displayName + "!");
-                response.sendRedirect("/");
-            }
+            String redirectUrl = UriComponentsBuilder
+                    .fromHttpUrl(frontendUrl)
+                    .path("/auth/callback")
+                    .queryParam("token", token)
+                    .build()
+                    .toUriString();
+
+            response.sendRedirect(redirectUrl);
         } catch (Exception e) {
             logger.error("Critical error in OAuth2LoginSuccessHandler", e);
-            response.sendRedirect("/login?error=oauth_error");
+            response.sendRedirect(buildFrontendErrorUrl("oauth_error"));
         }
+    }
+
+    private String buildFrontendErrorUrl(String errorCode) {
+        return UriComponentsBuilder
+                .fromHttpUrl(frontendUrl)
+                .path("/login")
+                .queryParam("oauthError", errorCode)
+                .build()
+                .toUriString();
     }
 
     private String getAssignedRoleForEmail(String email) {

@@ -4,7 +4,8 @@ import type { UserProfile } from '../types/user';
 
 export interface AuthContextValue extends AuthState {
   isAuthenticated: boolean;
-  login: (payload: LoginRequest) => Promise<void>;
+  login: (payload: LoginRequest) => Promise<UserProfile>;
+  completeOAuthLogin: (token: string) => Promise<UserProfile>;
   logout: () => Promise<void>;
   setCurrentUser: (user: UserProfile) => void;
 }

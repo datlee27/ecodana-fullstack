@@ -1,17 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { getRoleHomePath } from '../../utils/role';
 
 export const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAuthenticated, user, logout } = useAuth();
 
   const dashboardPath = useMemo(() => {
-    const role = user?.role?.toLowerCase();
-    if (role === 'admin') return '/admin';
-    if (role === 'owner') return '/owner/dashboard';
-    if (role === 'staff') return '/staff';
-    return '/owner/dashboard';
+    return getRoleHomePath(user);
   }, [user?.role]);
 
   return (

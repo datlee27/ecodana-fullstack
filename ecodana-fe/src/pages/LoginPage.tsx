@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { loginSchema, type LoginForm } from '../features/auth/loginSchema';
 import { useAuth } from '../hooks/useAuth';
+import { getRoleHomePath } from '../utils/role';
 
 const LoginPage = () => {
   const { login } = useAuth();
@@ -11,6 +12,13 @@ const LoginPage = () => {
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const oauthError = searchParams.get('oauthError');
+
+  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').trim();
+  const backendBaseUrl = apiBaseUrl.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+  const googleLoginUrl = `${backendBaseUrl || ''}/oauth2/authorization/google`;
 
   const {
     register,
@@ -28,8 +36,9 @@ const LoginPage = () => {
     setSubmitError(null);
 
     try {
-      await login(values);
-      const redirectTo = (location.state as { from?: string } | null)?.from ?? '/';
+      const loggedInUser = await login(values);
+      const roleHome = getRoleHomePath(loggedInUser);
+      const redirectTo = (location.state as { from?: string } | null)?.from ?? roleHome;
       navigate(redirectTo, { replace: true });
     } catch {
       setSubmitError('Invalid username or password. Please try again.');
@@ -51,6 +60,12 @@ const LoginPage = () => {
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg flex items-center">
             <i className="fas fa-exclamation-circle mr-2" />
             <span>{submitError}</span>
+          </div>
+        ) : null}
+        {oauthError ? (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg flex items-center">
+            <i className="fas fa-exclamation-circle mr-2" />
+            <span>Google login failed. Please try again.</span>
           </div>
         ) : null}
 
@@ -127,7 +142,7 @@ const LoginPage = () => {
 
           <div className="mt-6">
             <a
-              href="#"
+              href={googleLoginUrl}
               className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
