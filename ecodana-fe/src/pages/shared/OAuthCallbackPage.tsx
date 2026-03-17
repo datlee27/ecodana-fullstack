@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { authStorage } from '../utils/storage';
-import { getRoleHomePath } from '../utils/role';
+import { useAuth } from '../../hooks/useAuth';
+import { authStorage } from '../../utils/storage';
+import { getRoleHomePath } from '../../utils/role';
 
 const OAuthCallbackPage = () => {
   const navigate = useNavigate();

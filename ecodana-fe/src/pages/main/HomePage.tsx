@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getVehicles } from '../api/vehicleApi';
-import type { Vehicle } from '../types/vehicle';
+import { getVehicles } from '../../api/vehicleApi';
+import type { Vehicle } from '../../types/vehicle';
 
 const DEFAULT_LOCATION = 'Khu do thi FPT City, Phuong Ngu Hanh Son, Thanh pho Da Nang';
 

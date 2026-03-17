@@ -5,14 +5,14 @@ import {
   createBooking,
   getAvailableDiscounts,
   previewCheckout,
-} from '../api/bookingApi';
-import { getVehicleDetail } from '../api/vehicleApi';
-import type { ApiErrorResponse } from '../types/api';
+} from '../../../api/bookingApi';
+import { getVehicleDetail } from '../../../api/vehicleApi';
+import type { ApiErrorResponse } from '../../../types/api';
 import type {
   CheckoutPreviewData,
   DiscountOption,
-} from '../types/booking';
-import type { Vehicle } from '../types/vehicle';
+} from '../../../types/booking';
+import type { Vehicle } from '../../../types/vehicle';
 
 const formatCurrency = (value: number) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(value))} ₫`;

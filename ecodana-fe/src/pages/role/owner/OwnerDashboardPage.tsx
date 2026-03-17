@@ -1,10 +1,10 @@
-import { AddVehicleModal } from '../features/vehicle/AddVehicleModal';
-import { BookingStatCard } from '../features/vehicle/BookingStatCard';
-import { VehicleTable } from '../features/vehicle/VehicleTable';
-import { EmptyState } from '../components/common/EmptyState';
-import { ErrorState } from '../components/common/ErrorState';
-import { LoadingState } from '../components/common/LoadingState';
-import { useVehicles } from '../hooks/useVehicles';
+import { AddVehicleModal } from '../../../features/vehicle/AddVehicleModal';
+import { BookingStatCard } from '../../../features/vehicle/BookingStatCard';
+import { VehicleTable } from '../../../features/vehicle/VehicleTable';
+import { EmptyState } from '../../../components/common/EmptyState';
+import { ErrorState } from '../../../components/common/ErrorState';
+import { LoadingState } from '../../../components/common/LoadingState';
+import { useVehicles } from '../../../hooks/useVehicles';
 
 const OwnerDashboardPage = () => {
   const { vehicles, loading, error, refetch } = useVehicles();

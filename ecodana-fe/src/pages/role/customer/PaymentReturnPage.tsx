@@ -1,9 +1,9 @@
 import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { confirmBookingPaymentReturn } from '../api/bookingApi';
-import type { ApiErrorResponse } from '../types/api';
-import type { PaymentReturnData } from '../types/booking';
+import { confirmBookingPaymentReturn } from '../../../api/bookingApi';
+import type { ApiErrorResponse } from '../../../types/api';
+import type { PaymentReturnData } from '../../../types/booking';
 
 const formatCurrency = (value: number) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(value))} ₫`;

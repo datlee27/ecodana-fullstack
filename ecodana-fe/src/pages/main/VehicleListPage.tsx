@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { getFavoriteIds, toggleFavorite } from '../api/favoriteApi';
-import { getVehicles } from '../api/vehicleApi';
-import { useAuth } from '../hooks/useAuth';
-import type { VehicleQueryParams, Vehicle } from '../types/vehicle';
+import { getFavoriteIds, toggleFavorite } from '../../api/favoriteApi';
+import { getVehicles } from '../../api/vehicleApi';
+import { useAuth } from '../../hooks/useAuth';
+import type { VehicleQueryParams, Vehicle } from '../../types/vehicle';
 
 const statusUi: Record<string, string> = {
   AVAILABLE: 'bg-green-500 text-white',

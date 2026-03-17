@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getFavorites, toggleFavorite } from '../api/favoriteApi';
-import type { Vehicle } from '../types/vehicle';
+import { getFavorites, toggleFavorite } from '../../../api/favoriteApi';
+import type { Vehicle } from '../../../types/vehicle';
 
 const FavoritesPage = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);

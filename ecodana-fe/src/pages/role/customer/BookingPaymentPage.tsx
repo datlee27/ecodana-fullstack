@@ -4,9 +4,9 @@ import { Link, useParams } from 'react-router-dom';
 import {
   createBookingPaymentLink,
   getBookingPaymentSummary,
-} from '../api/bookingApi';
-import type { ApiErrorResponse } from '../types/api';
-import type { PaymentSummaryData } from '../types/booking';
+} from '../../../api/bookingApi';
+import type { ApiErrorResponse } from '../../../types/api';
+import type { PaymentSummaryData } from '../../../types/booking';
 
 const formatCurrency = (value: number) =>
   `${new Intl.NumberFormat('vi-VN').format(Math.round(value))} ₫`;

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { getAvailableDiscounts } from '../api/bookingApi';
-import { getFavoriteIds, toggleFavorite } from '../api/favoriteApi';
-import { getVehicleDetail, getVehicles } from '../api/vehicleApi';
-import { useAuth } from '../hooks/useAuth';
-import type { DiscountOption } from '../types/booking';
-import type { Vehicle } from '../types/vehicle';
+import { getAvailableDiscounts } from '../../api/bookingApi';
+import { getFavoriteIds, toggleFavorite } from '../../api/favoriteApi';
+import { getVehicleDetail, getVehicles } from '../../api/vehicleApi';
+import { useAuth } from '../../hooks/useAuth';
+import type { DiscountOption } from '../../types/booking';
+import type { Vehicle } from '../../types/vehicle';
 
 type TabKey = 'features' | 'documents' | 'location' | 'owner' | 'reviews';
 type DeliveryOption = 'custom' | 'airport' | 'free';

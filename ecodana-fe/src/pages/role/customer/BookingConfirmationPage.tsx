@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getBookingDetail, getBookingPaymentSummary } from '../api/bookingApi';
-import type { BookingSummary } from '../types/booking';
+import { getBookingDetail, getBookingPaymentSummary } from '../../../api/bookingApi';
+import type { BookingSummary } from '../../../types/booking';
 
 const BookingConfirmationPage = () => {
   const { bookingId } = useParams();

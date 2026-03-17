@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getMyBookings } from '../api/bookingApi';
-import type { BookingSummary } from '../types/booking';
+import { getMyBookings } from '../../../api/bookingApi';
+import type { BookingSummary } from '../../../types/booking';
 
 const tabs = [
   { key: 'all', label: 'Tat ca', statuses: [] as string[] },

@@ -1,18 +1,20 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
-import BookingConfirmationPage from '../pages/BookingConfirmationPage';
-import BookingCheckoutPage from '../pages/BookingCheckoutPage';
-import BookingPaymentPage from '../pages/BookingPaymentPage';
-import ComingSoonPage from '../pages/ComingSoonPage';
-import FavoritesPage from '../pages/FavoritesPage';
-import HomePage from '../pages/HomePage';
-import LoginPage from '../pages/LoginPage';
-import MyBookingsPage from '../pages/MyBookingsPage';
-import OAuthCallbackPage from '../pages/OAuthCallbackPage';
-import OwnerDashboardPage from '../pages/OwnerDashboardPage';
-import PaymentReturnPage from '../pages/PaymentReturnPage';
-import VehicleDetailPage from '../pages/VehicleDetailPage';
-import VehicleListPage from '../pages/VehicleListPage';
+import HomePage from '../pages/main/HomePage';
+import VehicleDetailPage from '../pages/main/VehicleDetailPage';
+import VehicleListPage from '../pages/main/VehicleListPage';
+import AdminDashboardPage from '../pages/role/admin/AdminDashboardPage';
+import BookingCheckoutPage from '../pages/role/customer/BookingCheckoutPage';
+import BookingConfirmationPage from '../pages/role/customer/BookingConfirmationPage';
+import BookingPaymentPage from '../pages/role/customer/BookingPaymentPage';
+import FavoritesPage from '../pages/role/customer/FavoritesPage';
+import MyBookingsPage from '../pages/role/customer/MyBookingsPage';
+import PaymentReturnPage from '../pages/role/customer/PaymentReturnPage';
+import OwnerDashboardPage from '../pages/role/owner/OwnerDashboardPage';
+import StaffDashboardPage from '../pages/role/staff/StaffDashboardPage';
+import ComingSoonPage from '../pages/shared/ComingSoonPage';
+import LoginPage from '../pages/shared/LoginPage';
+import OAuthCallbackPage from '../pages/shared/OAuthCallbackPage';
 import ProtectedRoute from './ProtectedRoute';
 
 const AppRouter = () => {
@@ -90,8 +92,8 @@ const AppRouter = () => {
             }
           />
 
-          <Route path="admin" element={<ProtectedRoute allowedRoles={['admin']}><ComingSoonPage title="Admin" description="Admin dashboard React dang duoc migrate." /></ProtectedRoute>} />
-          <Route path="staff" element={<ProtectedRoute allowedRoles={['staff', 'admin']}><ComingSoonPage title="Staff" description="Staff dashboard React dang duoc migrate." /></ProtectedRoute>} />
+          <Route path="admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />
+          <Route path="staff" element={<ProtectedRoute allowedRoles={['staff', 'admin']}><StaffDashboardPage /></ProtectedRoute>} />
 
           <Route path="*" element={<ComingSoonPage title="Not Found" description="Trang ban yeu cau khong ton tai." />} />
         </Route>
