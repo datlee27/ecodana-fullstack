@@ -37,6 +37,9 @@ public class PayOSService {
     @Value("${app.base-url}")
     private String baseUrl;
 
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
+
     @Value("${payos.return-url}")
     private String returnUrl;
 
@@ -49,9 +52,9 @@ public class PayOSService {
             long orderCodeNumber = System.currentTimeMillis() / 1000;
             String orderCode = String.valueOf(orderCodeNumber);
 
-            // Tạo URL callback và return
-            String localReturnUrl = baseUrl + "/booking/payment/payos-return?bookingId=" + bookingId;
-            String cancelUrl = baseUrl + "/booking/payment/cancel?bookingId=" + bookingId;
+            // Redirect thanh toan ve frontend SPA
+            String localReturnUrl = frontendUrl + "/payment/payos-return?bookingId=" + bookingId;
+            String cancelUrl = frontendUrl + "/payment/payos-return?bookingId=" + bookingId + "&cancel=1";
 
             logger.info("Creating PayOS payment link - Amount: {}, OrderCode: {}, BookingId: {}, PaymentType: {}", amount, orderCode, bookingId, paymentType);
             logger.info("Return URL: {}, Cancel URL: {}", localReturnUrl, cancelUrl);
