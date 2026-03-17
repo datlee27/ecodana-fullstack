@@ -15,7 +15,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
 import com.ecodana.evodanavn1.service.UserService;
 
 @Configuration
@@ -28,9 +27,9 @@ public class SecurityConfig {
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
     public SecurityConfig(UserService userService,
-                          PasswordEncoder passwordEncoder,
-                          CustomOAuth2UserService customOAuth2UserService,
-                          OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) {
+            PasswordEncoder passwordEncoder,
+            CustomOAuth2UserService customOAuth2UserService,
+            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.customOAuth2UserService = customOAuth2UserService;
@@ -45,19 +44,22 @@ public class SecurityConfig {
                 user = userService.findByEmail(username);
             }
             if (user == null) {
-                throw new org.springframework.security.core.userdetails.UsernameNotFoundException("User not found: " + username);
+                throw new org.springframework.security.core.userdetails.UsernameNotFoundException(
+                        "User not found: " + username);
             }
-            
+
             // Check if user is banned
             if (user.getStatus() == User.UserStatus.Banned) {
-                throw new org.springframework.security.authentication.DisabledException("Tài khoản của bạn đã bị cấm. Vui lòng liên hệ quản trị viên.");
+                throw new org.springframework.security.authentication.DisabledException(
+                        "Tài khoản của bạn đã bị cấm. Vui lòng liên hệ quản trị viên.");
             }
-            
+
             // Check if user is inactive
             if (user.getStatus() == User.UserStatus.Inactive) {
-                throw new org.springframework.security.authentication.DisabledException("Tài khoản của bạn chưa được kích hoạt.");
+                throw new org.springframework.security.authentication.DisabledException(
+                        "Tài khoản của bạn chưa được kích hoạt.");
             }
-            
+
             return org.springframework.security.core.userdetails.User.builder()
                     .username(user.getUsername())
                     .password(user.getPassword())
@@ -77,9 +79,9 @@ public class SecurityConfig {
     @Bean
     @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   JwtAuthenticationFilter jwtAuthenticationFilter,
-                                                   ApiAuthenticationEntryPoint apiAuthenticationEntryPoint,
-                                                   ApiAccessDeniedHandler apiAccessDeniedHandler) throws Exception {
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            ApiAuthenticationEntryPoint apiAuthenticationEntryPoint,
+            ApiAccessDeniedHandler apiAccessDeniedHandler) throws Exception {
         http
                 .authenticationProvider(authenticationProvider())
                 .csrf(csrf -> csrf.disable())
@@ -87,34 +89,31 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(apiAuthenticationEntryPoint)
-                        .accessDeniedHandler(apiAccessDeniedHandler)
-                )
+                        .accessDeniedHandler(apiAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/oauth2/**",
                                 "/login/oauth2/**",
-                                "/error"
-                        ).permitAll()
+                                "/error")
+                        .permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/chatbot/**", "/api/discounts/validate").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         // Legacy web đã tắt, chỉ cho phép các luồng API/OAuth rõ ràng.
-                        .anyRequest().denyAll()
-                )
+                        .anyRequest().denyAll())
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo
-                                .oidcUserService(customOAuth2UserService)
-                        )
-                        .successHandler(oAuth2LoginSuccessHandler)
-                )
+                                .oidcUserService(customOAuth2UserService))
+                        .successHandler(oAuth2LoginSuccessHandler))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
+            throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }
 }

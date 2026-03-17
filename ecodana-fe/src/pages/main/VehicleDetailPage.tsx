@@ -4,6 +4,7 @@ import { getAvailableDiscounts } from '../../api/bookingApi';
 import { getFavoriteIds, toggleFavorite } from '../../api/favoriteApi';
 import { getVehicleDetail, getVehicles } from '../../api/vehicleApi';
 import { useAuth } from '../../hooks/useAuth';
+import { useNotification } from '../../hooks/useNotification';
 import type { DiscountOption } from '../../types/booking';
 import type { Vehicle } from '../../types/vehicle';
 
@@ -18,6 +19,7 @@ const VehicleDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { warning, error: notifyError, success, info } = useNotification();
 
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [relatedVehicles, setRelatedVehicles] = useState<Vehicle[]>([]);
@@ -186,8 +188,13 @@ const VehicleDetailPage = () => {
     try {
       const result = await toggleFavorite(vehicle.vehicleId);
       setIsFavorite(result.favorited);
+      if (result.favorited) {
+        success('Xe da duoc them vao danh sach yeu thich.');
+      } else {
+        info('Xe da duoc xoa khoi danh sach yeu thich.');
+      }
     } catch {
-      // ignore toggle error
+      notifyError('Khong the cap nhat trang thai yeu thich. Vui long thu lai.');
     }
   };
 
@@ -215,29 +222,32 @@ const VehicleDetailPage = () => {
   const handleUpdateLocation = () => {
     if (deliveryOption === 'custom') {
       if (!customAddress.trim()) {
-        window.alert('Vui long nhap dia chi tuy chinh.');
+        warning('Vui long nhap dia chi tuy chinh.');
         return;
       }
       setPickupLocation(customAddress.trim());
       setDeliveryFee(0);
       setLocationModalOpen(false);
+      success('Da cap nhat dia diem giao xe.');
       return;
     }
 
     if (deliveryOption === 'airport') {
       if (!airportLocation) {
-        window.alert('Vui long chon dia diem san bay/ga.');
+        warning('Vui long chon dia diem san bay/ga.');
         return;
       }
       setPickupLocation(airportLocation);
       setDeliveryFee(0);
       setLocationModalOpen(false);
+      success('Da cap nhat dia diem giao xe.');
       return;
     }
 
     setPickupLocation('Nhan xe tai vi tri cua xe');
     setDeliveryFee(0);
     setLocationModalOpen(false);
+    success('Da cap nhat dia diem giao xe.');
   };
 
   const handleSubmitBooking = (event: FormEvent<HTMLFormElement>) => {
@@ -255,12 +265,12 @@ const VehicleDetailPage = () => {
     }
 
     if (pickupLocation === DEFAULT_LOCATION_TEXT) {
-      window.alert('Vui long chon dia diem giao xe.');
+      warning('Vui long chon dia diem giao xe.');
       return;
     }
 
     if (!rentalComputation.valid) {
-      window.alert('Vui long chon ngay va gio hop le.');
+      warning('Vui long chon ngay va gio hop le.');
       return;
     }
 

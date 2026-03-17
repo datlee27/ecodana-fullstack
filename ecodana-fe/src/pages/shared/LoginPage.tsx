@@ -1,17 +1,19 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { loginSchema, type LoginForm } from '../../features/auth/loginSchema';
 import { useAuth } from '../../hooks/useAuth';
+import { useNotification } from '../../hooks/useNotification';
 import { getRoleHomePath } from '../../utils/role';
 
 const LoginPage = () => {
   const { login } = useAuth();
+  const { error: notifyError } = useNotification();
   const navigate = useNavigate();
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const lastOauthErrorRef = useRef<string | null>(null);
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const oauthError = searchParams.get('oauthError');
@@ -32,16 +34,21 @@ const LoginPage = () => {
     },
   });
 
-  const onSubmit = async (values: LoginForm) => {
-    setSubmitError(null);
+  useEffect(() => {
+    if (!oauthError || lastOauthErrorRef.current === oauthError) return;
+    notifyError('Google login failed. Please try again.');
+    lastOauthErrorRef.current = oauthError;
+  }, [notifyError, oauthError]);
 
+  const onSubmit = async (values: LoginForm) => {
     try {
       const loggedInUser = await login(values);
       const roleHome = getRoleHomePath(loggedInUser);
       const redirectTo = (location.state as { from?: string } | null)?.from ?? roleHome;
       navigate(redirectTo, { replace: true });
     } catch {
-      setSubmitError('Invalid username or password. Please try again.');
+      const message = 'Invalid username or password. Please try again.';
+      notifyError(message);
     }
   };
 
@@ -55,19 +62,6 @@ const LoginPage = () => {
           <h2 className="text-2xl font-semibold text-gray-800">Welcome Back</h2>
           <p className="text-gray-600 mt-2">Sign in to your account to continue</p>
         </div>
-
-        {submitError ? (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg flex items-center">
-            <i className="fas fa-exclamation-circle mr-2" />
-            <span>{submitError}</span>
-          </div>
-        ) : null}
-        {oauthError ? (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg flex items-center">
-            <i className="fas fa-exclamation-circle mr-2" />
-            <span>Google login failed. Please try again.</span>
-          </div>
-        ) : null}
 
         <form onSubmit={handleSubmit(onSubmit)} id="loginForm">
           <div className="mb-4">

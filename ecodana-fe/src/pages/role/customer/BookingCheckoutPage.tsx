@@ -7,6 +7,7 @@ import {
   previewCheckout,
 } from '../../../api/bookingApi';
 import { getVehicleDetail } from '../../../api/vehicleApi';
+import { useNotification } from '../../../hooks/useNotification';
 import type { ApiErrorResponse } from '../../../types/api';
 import type {
   CheckoutPreviewData,
@@ -47,6 +48,11 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 
 const BookingCheckoutPage = () => {
   const navigate = useNavigate();
+  const {
+    warning,
+    error: notifyError,
+    success,
+  } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const vehicleId = searchParams.get('vehicleId') ?? '';
@@ -186,14 +192,14 @@ const BookingCheckoutPage = () => {
 
   const handleSaveEditTime = () => {
     if (!editPickupDate || !editPickupTime || !editReturnDate || !editReturnTime) {
-      window.alert('Vui long dien day du ngay gio nhan/tra xe.');
+      warning('Vui long dien day du ngay gio nhan/tra xe.');
       return;
     }
 
     const start = new Date(`${editPickupDate}T${editPickupTime}:00`);
     const end = new Date(`${editReturnDate}T${editReturnTime}:00`);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
-      window.alert('Ngay tra xe phai sau ngay nhan xe.');
+      warning('Ngay tra xe phai sau ngay nhan xe.');
       return;
     }
 
@@ -208,6 +214,7 @@ const BookingCheckoutPage = () => {
       returnTime: editReturnTime,
     });
     setEditMode(false);
+    success('Da cap nhat thoi gian thue xe.');
   };
 
   const handleApplyDiscount = (nextCode: string) => {
@@ -217,12 +224,12 @@ const BookingCheckoutPage = () => {
 
   const handleConfirmBooking = async () => {
     if (!agreeTerms) {
-      window.alert('Vui long dong y dieu khoan va dieu kien truoc khi xac nhan dat xe.');
+      warning('Vui long dong y dieu khoan va dieu kien truoc khi xac nhan dat xe.');
       return;
     }
 
     if (!vehicle || !preview) {
-      window.alert('Thong tin checkout chua san sang. Vui long thu lai.');
+      warning('Thong tin checkout chua san sang. Vui long thu lai.');
       return;
     }
 
@@ -241,7 +248,9 @@ const BookingCheckoutPage = () => {
       });
       navigate(`/booking/payment/${created.bookingId}`);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Khong the tao don dat xe.'));
+      const message = getApiErrorMessage(apiError, 'Khong the tao don dat xe.');
+      setError(message);
+      notifyError(message);
     } finally {
       setSubmitting(false);
     }
