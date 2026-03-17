@@ -1,77 +1,63 @@
 # EcoDana Project
 
-## Introduction
+EcoDana hiện gồm 2 phần:
 
-EcoDana is a web application built with Spring Boot, designed to connect vehicle owners and renters with a focus on eco-friendly transportation solutions. This project provides a platform for efficient vehicle management, booking, and rental.
+- Backend: Spring Boot (REST API + legacy Thymeleaf)
+- Frontend mới: React + Vite + TypeScript tại `ecodana-fe/`
 
-## Key Features
+## Technologies
 
-*   **User Management:** Registration, login, and user profile management.
-*   **Vehicle Management:** Allows vehicle owners to add, update, and manage rental vehicle information.
-*   **Booking:** Users can search, view details, and book vehicles.
-*   **Payment:** Secure payment integration to handle transactions.
-*   **Notifications:** Sends email notifications for booking confirmations and other updates.
-*   **Image Upload:** Uses Cloudinary for managing vehicle images.
+### Backend
 
-## Technologies Used
+- Java 21
+- Spring Boot 3
+- Spring Security + JWT
+- Spring Data JPA
+- MySQL
 
-*   **Backend:**
-    *   Java 21
-    *   Spring Boot 3
-    *   Spring Web
-    *   Spring Data JPA
-    *   Spring Security
-    *   Spring Mail
-*   **Frontend:**
-    *   Thymeleaf (legacy SSR)
-*   **Database:**
-    *   MySQL
-*   **Image Storage:**
-    *   Cloudinary
-*   **Build Tool:**
-    *   Maven
+### Frontend
 
-## Project Structure
+- React + TypeScript + Vite
+- Tailwind CSS
+- react-router-dom
+- Axios
 
-The project follows the standard Maven structure:
+## Run backend
 
-*   `src/main/java`: Java source code
-*   `src/main/resources`: Resource files, including `application.properties` and Thymeleaf templates
-*   `pom.xml`: Maven project configuration file
+```bash
+./mvnw spring-boot:run
+```
 
-## Participants
+Backend mặc định chạy tại `http://localhost:8080`.
 
-This project was developed by a dedicated team of developers.
+## Run frontend
 
-## User Roles
+```bash
+cd ecodana-fe
+npm install
+npm run dev
+```
 
-| Role     | Email                 | Password |
-|----------|-----------------------|----------|
-| Admin    | admin@ecodana.com     | password |
-| Owner    | owner@ecodana.com     | password |
-| Customer | customer@ecodana.com  | password |
+Frontend mặc định chạy tại `http://localhost:5173`.
 
-## Getting Started
+## Environment
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/datlee27/EcoDanav2
-    ```
-2.  **Configure the database:**
-    *   Create a MySQL database.
-    *   Update the `spring.datasource` properties in `application.properties`.
-3.  **Run the application:**
-    ```bash
-    ./mvnw spring-boot:run
-    ```
+### Frontend (`ecodana-fe/.env`)
+
+```bash
+VITE_API_BASE_URL=http://localhost:8080
+```
+
+### Backend CORS
+
+Backend đã hỗ trợ CORS qua biến `APP_CORS_ALLOWED_ORIGINS`, mặc định có:
+
+- `http://localhost:3000`
+- `http://localhost:5173`
 
 ## Swagger API
 
-After running backend, open:
 - `http://localhost:8080/swagger-ui/index.html`
-- OpenAPI spec: `http://localhost:8080/v3/api-docs`
+- OpenAPI: `http://localhost:8080/v3/api-docs`
 
-Detailed API-first guide:
-- `docs/SWAGGER_API_GUIDE.md`
-
-Thank you for considering our project!
+Guide chi tiết API-first: `docs/SWAGGER_API_GUIDE.md`

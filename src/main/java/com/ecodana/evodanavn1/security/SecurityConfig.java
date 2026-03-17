@@ -6,17 +6,15 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.session.SessionRegistry;
-import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
-import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.ecodana.evodanavn1.service.UserService;
 
@@ -24,25 +22,13 @@ import com.ecodana.evodanavn1.service.UserService;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final OAuth2LoginSuccessHandler successHandler;
-    private final CustomAuthenticationSuccessHandler customSuccessHandler;
-    private final ClientRegistrationRepository clientRegistrationRepository;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
-    private final CustomOAuth2UserService customOAuth2UserService;
 
-    public SecurityConfig(OAuth2LoginSuccessHandler successHandler,
-                          CustomAuthenticationSuccessHandler customSuccessHandler,
-                          ClientRegistrationRepository clientRegistrationRepository,
-                          UserService userService,
-                          PasswordEncoder passwordEncoder,
-                          CustomOAuth2UserService customOAuth2UserService) {
-        this.successHandler = successHandler;
-        this.customSuccessHandler = customSuccessHandler;
-        this.clientRegistrationRepository = clientRegistrationRepository;
+    public SecurityConfig(UserService userService,
+                          PasswordEncoder passwordEncoder) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
-        this.customOAuth2UserService = customOAuth2UserService;
     }
 
     @Bean
@@ -83,71 +69,29 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SessionRegistry sessionRegistry() {
-        return new SessionRegistryImpl();
-    }
-
-    @Bean
     @Order(2)
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   JwtAuthenticationFilter jwtAuthenticationFilter,
+                                                   ApiAuthenticationEntryPoint apiAuthenticationEntryPoint,
+                                                   ApiAccessDeniedHandler apiAccessDeniedHandler) throws Exception {
         http
                 .authenticationProvider(authenticationProvider())
+                .csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(apiAuthenticationEntryPoint)
+                        .accessDeniedHandler(apiAccessDeniedHandler)
+                )
                 .authorizeHttpRequests(auth -> auth
-                        // CHO PHÉP TRUY CẬP CÔNG KHAI VÀO API CHATBOT
-                        .requestMatchers("/", "/register", "/verify-otp", "/login", "/login-success", "/logout", "/vehicles/**", "/css/**", "/js/**", "/images/**", "/oauth2/**", "/forgot-password", "/reset-password", "/api/discounts/validate", "/api/chatbot/**", "/register-car-info", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/owner/cars/add", "/owner/cars").authenticated()
-                        .requestMatchers("/owner/**").hasAnyRole("ADMIN", "STAFF", "OWNER")
-                        .requestMatchers("/staff/**").hasAnyRole("ADMIN", "STAFF")
-                        .requestMatchers("/booking/**").authenticated()
-                        .requestMatchers("/documents/**").authenticated()
-                        .requestMatchers("/feedback/**").authenticated()
-                        .anyRequest().authenticated()
-                ) 
-                .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/oauth2/**", "/api/**", "/documents/**", "/feedback/**", "/admin/**", "/owner/**", "/favorites/**") // Đã bao gồm /api/chatbot/**
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/api/chatbot/**", "/api/discounts/validate").permitAll()
+                        .requestMatchers("/api/**").authenticated()
+                        // Disable all legacy Thymeleaf MVC routes; frontend is now React SPA.
+                        .anyRequest().denyAll()
                 )
-                .formLogin(form -> form
-                        .loginPage("/login")
-                        .loginProcessingUrl("/login")
-                        .successHandler(customSuccessHandler)
-                        .permitAll()
-                )
-                .logout(logout -> logout
-                        .logoutUrl("/logout")
-                        .logoutSuccessUrl("/login?logout=true")
-                        .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID")
-                        .permitAll()
-                )
-                .oauth2Login(oauth -> oauth
-                        .loginPage("/login")
-                        .userInfoEndpoint(userInfo -> userInfo
-                                .oidcUserService(customOAuth2UserService)
-                        )
-                        .successHandler(successHandler)
-                        .authorizationEndpoint(authorization -> authorization
-                                .authorizationRequestResolver(authorizationRequestResolver(clientRegistrationRepository))
-                        )
-                )
-                .sessionManagement(session -> session
-                        .maximumSessions(1)
-                        .maxSessionsPreventsLogin(false)
-                        .sessionRegistry(sessionRegistry())
-                );
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
-    }
-
-    private OAuth2AuthorizationRequestResolver authorizationRequestResolver(ClientRegistrationRepository clientRegistrationRepository) {
-        DefaultOAuth2AuthorizationRequestResolver authorizationRequestResolver =
-                new DefaultOAuth2AuthorizationRequestResolver(clientRegistrationRepository, "/oauth2/authorization");
-        authorizationRequestResolver.setAuthorizationRequestCustomizer(
-                customizer -> customizer.additionalParameters(params -> {
-                    params.put("access_type", "offline");
-                    params.put("prompt", "consent select_account");
-                })
-        );
-        return authorizationRequestResolver;
     }
 
     @Bean
