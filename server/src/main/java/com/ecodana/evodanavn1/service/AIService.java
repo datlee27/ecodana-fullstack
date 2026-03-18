@@ -5,12 +5,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.util.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.text.Normalizer;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -26,6 +28,18 @@ public class AIService {
 
     @Value("${ai.cloudflare.model:@cf/meta/llama-3-8b-instruct}")
     private String model;
+
+    @Value("${ai.service.temperature:0.1}")
+    private Double temperature;
+
+    @Value("${ai.service.max_tokens:256}")
+    private Integer maxTokens;
+
+    @Value("${ai.service.stream:false}")
+    private Boolean stream;
+
+    @Value("${ai.chatbot.system-prompt-override:}")
+    private String systemPromptOverride;
 
     private static final Logger logger = LoggerFactory.getLogger(AIService.class);
     private final RestTemplate restTemplate = new RestTemplate();
@@ -112,10 +126,63 @@ public class AIService {
         return "<p>" + description + linkHtml + "</p>";
     }
 
+    private static String normalizeVietnamese(String text) {
+        if (text == null) {
+            return "";
+        }
+        String normalized = Normalizer.normalize(text, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replace('đ', 'd')
+                .replace('Đ', 'D');
+        return normalized.toLowerCase(Locale.ROOT).trim();
+    }
+
+    /**
+     * Tra loi theo bo huong dan co dinh de dam bao dung trong tam.
+     * Neu khong khop thi se fallback qua AI model.
+     */
+    private String getGuidedReply(String message) {
+        String q = normalizeVietnamese(message);
+        if (q.isEmpty()) {
+            return null;
+        }
+
+        if ((q.contains("thu tuc") || q.contains("giay to")) && q.contains("thue")) {
+            return "<p>Thu tuc thue xe: 1) Chon xe, 2) Dat lich, 3) Xac thuc giay to, 4) Dat coc/Thanh toan, 5) Nhan xe. Ban can CCCD va giay phep lai xe hop le (neu xe yeu cau).</p>";
+        }
+
+        if ((q.contains("gia") || q.contains("chi phi") || q.contains("bao nhieu")) && q.contains("thue")) {
+            return "<p>Gia thue tuy theo dong xe va thoi gian thue. Ban co the <a href='/vehicles' style='color:#007bff;text-decoration:underline;font-weight:bold;'>xem bang gia xe tai day</a>.</p>";
+        }
+
+        if (q.contains("huong dan dat xe") || q.contains("cach dat xe") || (q.contains("dat xe") && q.contains("the nao"))) {
+            return "<p>De dat xe: vao trang xe, chon xe phu hop, chon thoi gian nhan/tra, nhap thong tin, xac nhan dat xe va thanh toan theo huong dan. Bat dau tai <a href='/vehicles' style='color:#007bff;text-decoration:underline;font-weight:bold;'>danh sach xe</a>.</p>";
+        }
+
+        if (q.contains("thanh toan") || q.contains("dat coc") || q.contains("payment")) {
+            return "<p>He thong ho tro thanh toan dat coc hoac thanh toan day du (tuy don). Sau khi owner duyet booking, ban se thay huong dan thanh toan cu the trong don hang.</p>";
+        }
+
+        if (q.contains("huy") && (q.contains("dat xe") || q.contains("booking"))) {
+            return "<p>Ban co the yeu cau huy trong trang don hang cua toi. Muc hoan tien phu thuoc thoi diem huy va trang thai booking. Neu can ho tro nhanh, vui long <a href='/contact' style='color:#007bff;text-decoration:underline;font-weight:bold;'>lien he CSKH</a>.</p>";
+        }
+
+        if (q.contains("lien he") || q.contains("ho tro") || q.contains("cskh")) {
+            return "<p>Ban co the lien he ho tro tai <a href='/contact' style='color:#007bff;text-decoration:underline;font-weight:bold;'>trang Contact</a>. Doi ngu se ho tro ban nhanh nhat.</p>";
+        }
+
+        return null;
+    }
+
     public String askAI(String message) {
         if (accountId == null || apiToken == null || accountId.isBlank() || apiToken.isBlank()) {
             logger.error("❌ Cloudflare Account ID hoặc API Token chưa được cấu hình.");
             return "⚠️ Dịch vụ AI chưa được cấu hình. Vui lòng liên hệ quản trị viên.";
+        }
+
+        String guidedReply = getGuidedReply(message);
+        if (guidedReply != null) {
+            return guidedReply;
         }
 
         String url = "https://api.cloudflare.com/client/v4/accounts/" + accountId + "/ai/run/" + model;
@@ -124,7 +191,8 @@ public class AIService {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         String currentDate = today.format(fmt);
 
-        String systemPrompt = SYSTEM_PROMPT.replace("{current_date}", currentDate);
+        String basePrompt = StringUtils.hasText(systemPromptOverride) ? systemPromptOverride : SYSTEM_PROMPT;
+        String systemPrompt = basePrompt.replace("{current_date}", currentDate);
 
         try {
             // ==== Chuẩn bị body ====
@@ -133,6 +201,9 @@ public class AIService {
             messages.add(Map.of("role", "system", "content", systemPrompt));
             messages.add(Map.of("role", "user", "content", message));
             body.put("messages", messages);
+            body.put("temperature", temperature);
+            body.put("max_tokens", maxTokens);
+            body.put("stream", stream);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
