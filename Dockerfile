@@ -27,3 +27,4 @@ EXPOSE 10000
 
 # Chạy file JAR
 CMD ["sh", "-c", "java -jar target/*.jar --server.port=${PORT}"]
+

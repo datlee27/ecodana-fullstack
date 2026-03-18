@@ -25,6 +25,7 @@ EcoDana hiện gồm 2 phần:
 ## Run backend
 
 ```bash
+cd server
 ./mvnw spring-boot:run
 ```
 
@@ -33,7 +34,7 @@ Backend mặc định chạy tại `http://localhost:8080`.
 ## Run frontend
 
 ```bash
-cd ecodana-fe
+cd client
 npm install
 npm run dev
 ```
