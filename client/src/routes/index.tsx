@@ -1,9 +1,12 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import OwnerLayout from '../layouts/OwnerLayout';
 import MainLayout from '../layouts/MainLayout';
 import HomePage from '../pages/main/HomePage';
 import VehicleDetailPage from '../pages/main/VehicleDetailPage';
 import VehicleListPage from '../pages/main/VehicleListPage';
 import AdminDashboardPage from '../pages/role/admin/AdminDashboardPage';
+import OwnerBankAccountsPage from '../pages/role/owner/OwnerBankAccountsPage';
+import OwnerBookingPage from '../pages/role/owner/OwnerBookingPage';
 import BookingCheckoutPage from '../pages/role/customer/BookingCheckoutPage';
 import BookingConfirmationPage from '../pages/role/customer/BookingConfirmationPage';
 import BookingPaymentPage from '../pages/role/customer/BookingPaymentPage';
@@ -11,6 +14,9 @@ import FavoritesPage from '../pages/role/customer/FavoritesPage';
 import MyBookingsPage from '../pages/role/customer/MyBookingsPage';
 import PaymentReturnPage from '../pages/role/customer/PaymentReturnPage';
 import OwnerDashboardPage from '../pages/role/owner/OwnerDashboardPage';
+import OwnerFeedbackPage from '../pages/role/owner/OwnerFeedbackPage';
+import OwnerPaymentPage from '../pages/role/owner/OwnerPaymentPage';
+import OwnerVehicleListPage from '../pages/role/owner/OwnerVehicleListPage';
 import StaffDashboardPage from '../pages/role/staff/StaffDashboardPage';
 import ComingSoonPage from '../pages/shared/ComingSoonPage';
 import LoginPage from '../pages/shared/LoginPage';
@@ -84,13 +90,21 @@ const AppRouter = () => {
           />
 
           <Route
-            path="owner/dashboard"
+            path="owner"
             element={
               <ProtectedRoute allowedRoles={['owner', 'staff', 'admin']}>
-                <OwnerDashboardPage />
+                <OwnerLayout />
               </ProtectedRoute>
             }
-          />
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<OwnerDashboardPage />} />
+            <Route path="vehicles" element={<OwnerVehicleListPage />} />
+            <Route path="bookings" element={<OwnerBookingPage />} />
+            <Route path="payments" element={<OwnerPaymentPage />} />
+            <Route path="feedback" element={<OwnerFeedbackPage />} />
+            <Route path="bank-accounts" element={<OwnerBankAccountsPage />} />
+          </Route>
 
           <Route path="admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />
           <Route path="staff" element={<ProtectedRoute allowedRoles={['staff', 'admin']}><StaffDashboardPage /></ProtectedRoute>} />
