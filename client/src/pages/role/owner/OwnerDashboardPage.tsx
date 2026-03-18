@@ -40,12 +40,14 @@ const OwnerDashboardPage = () => {
   }
 
   const available = vehicles.filter((vehicle) => vehicle.status?.toUpperCase() === 'AVAILABLE').length;
+  const maintenance = vehicles.filter((vehicle) => vehicle.status?.toUpperCase() === 'MAINTENANCE').length;
   const pendingApproval = vehicles.filter((vehicle) => vehicle.status?.toUpperCase() === 'PENDINGAPPROVAL').length;
   const pendingBookings = bookings.filter((booking) => booking.status === 'Pending').length;
   const ongoingBookings = bookings.filter((booking) => booking.status === 'Ongoing').length;
   const stats = {
     totalVehicles: vehicles.length,
     available,
+    maintenance,
     pendingApproval,
     pendingBookings,
     ongoingBookings,
@@ -72,9 +74,10 @@ const OwnerDashboardPage = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-6">
         <BookingStatCard label="Tong xe" value={stats.totalVehicles} tone="slate" />
         <BookingStatCard label="Xe san sang" value={stats.available} tone="emerald" />
+        <BookingStatCard label="Xe bao tri/sac" value={stats.maintenance} tone="amber" />
         <BookingStatCard label="Cho duyet" value={stats.pendingApproval} tone="amber" />
         <BookingStatCard label="Don cho xu ly" value={stats.pendingBookings} tone="amber" />
         <BookingStatCard label="Chuyen dang thue" value={stats.ongoingBookings} tone="emerald" />

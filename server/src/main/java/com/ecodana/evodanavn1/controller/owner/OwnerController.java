@@ -887,7 +887,7 @@ public class OwnerController {
             @PathVariable String id,
             @RequestParam(value = "images", required = false) MultipartFile[] images,
             @RequestParam(value = "notes", required = false) String notes,
-            @RequestParam(value = "setMaintenance", defaultValue = "false") String setMaintenance,
+            @RequestParam(value = "setMaintenance", defaultValue = "true") String setMaintenance,
             HttpSession session) {
 
         User currentUser = (User) session.getAttribute("currentUser");
@@ -926,8 +926,8 @@ public class OwnerController {
                 }
             }
 
-            // 3. Chuyển đổi cờ setMaintenance
-            boolean setMaintenanceFlag = Boolean.parseBoolean(setMaintenance);
+            // 3. Business rule: sau khi hoan tat chuyen di, xe bat buoc vao Maintenance
+            boolean setMaintenanceFlag = true;
 
             // 4. Gọi Service
             Booking booking = bookingService.completeBooking(id, currentUser, notes, imageUrls, setMaintenanceFlag);

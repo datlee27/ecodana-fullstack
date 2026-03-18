@@ -1,5 +1,6 @@
+import axios from 'axios';
 import axiosClient from './axios';
-import type { ApiResponse } from '../types/api';
+import type { ApiErrorResponse, ApiResponse } from '../types/api';
 import type {
   OwnerBankAccountItem,
   OwnerBooking,
@@ -34,6 +35,15 @@ const normalizePayment = (payment: OwnerPaymentsData['items'][number]): OwnerPay
   ...payment,
   amount: toNumber(payment.amount),
 });
+
+export const getOwnerApiErrorMessage = (error: unknown, fallback: string): string => {
+  if (!axios.isAxiosError<ApiErrorResponse>(error)) {
+    return fallback;
+  }
+
+  const apiError = error.response?.data?.data as { error?: string } | undefined;
+  return apiError?.error ?? error.response?.data?.message ?? fallback;
+};
 
 export const getOwnerMeta = async (): Promise<OwnerVehicleMeta> => {
   const response = await axiosClient.get<ApiResponse<{
@@ -78,6 +88,28 @@ export const updateOwnerVehicleStatus = async (vehicleId: string, status: string
 
 export const deleteOwnerVehicle = async (vehicleId: string): Promise<void> => {
   await axiosClient.delete(`/api/v1/owner/vehicles/${vehicleId}`);
+};
+
+export const uploadOwnerVehicleMainImage = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await axiosClient.post<ApiResponse<{ url: string }>>('/api/v1/owner/vehicles/upload-main-image', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data.data.url;
+};
+
+export const uploadOwnerVehicleAuxiliaryImages = async (files: File[]): Promise<string[]> => {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('files', file));
+  const response = await axiosClient.post<ApiResponse<{ urls: string[] }>>('/api/v1/owner/vehicles/upload-auxiliary-images', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data.data.urls;
 };
 
 export const getOwnerBookings = async (): Promise<OwnerBooking[]> => {

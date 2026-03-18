@@ -1,5 +1,7 @@
 package com.ecodana.evodanavn1.controller.api.v1;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.ecodana.evodanavn1.api.ApiResponse;
 import com.ecodana.evodanavn1.dto.VehicleResponse;
 import com.ecodana.evodanavn1.model.BankAccount;
@@ -8,6 +10,7 @@ import com.ecodana.evodanavn1.model.Payment;
 import com.ecodana.evodanavn1.model.User;
 import com.ecodana.evodanavn1.model.UserFeedback;
 import com.ecodana.evodanavn1.model.Vehicle;
+import com.ecodana.evodanavn1.repository.BookingRepository;
 import com.ecodana.evodanavn1.repository.TransmissionTypeRepository;
 import com.ecodana.evodanavn1.repository.VehicleCategoriesRepository;
 import com.ecodana.evodanavn1.service.BankAccountService;
@@ -33,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -52,6 +56,14 @@ import java.util.UUID;
 @Tag(name = "Owner Management API", description = "API owner dashboard/vehicle/booking cho frontend React")
 @SecurityRequirement(name = "bearerAuth")
 public class OwnerManagementApiController {
+    private static final List<Booking.BookingStatus> BLOCKING_BOOKING_STATUSES = List.of(
+            Booking.BookingStatus.Pending,
+            Booking.BookingStatus.Approved,
+            Booking.BookingStatus.AwaitingDeposit,
+            Booking.BookingStatus.Confirmed,
+            Booking.BookingStatus.Ongoing,
+            Booking.BookingStatus.LatePickup
+    );
 
     private final UserService userService;
     private final VehicleService vehicleService;
@@ -61,7 +73,9 @@ public class OwnerManagementApiController {
     private final BankAccountService bankAccountService;
     private final VehicleCategoriesRepository vehicleCategoriesRepository;
     private final TransmissionTypeRepository transmissionTypeRepository;
+    private final BookingRepository bookingRepository;
     private final ObjectMapper objectMapper;
+    private final Cloudinary cloudinary;
 
     public OwnerManagementApiController(UserService userService,
                                         VehicleService vehicleService,
@@ -71,7 +85,9 @@ public class OwnerManagementApiController {
                                         BankAccountService bankAccountService,
                                         VehicleCategoriesRepository vehicleCategoriesRepository,
                                         TransmissionTypeRepository transmissionTypeRepository,
-                                        ObjectMapper objectMapper) {
+                                        BookingRepository bookingRepository,
+                                        ObjectMapper objectMapper,
+                                        Cloudinary cloudinary) {
         this.userService = userService;
         this.vehicleService = vehicleService;
         this.bookingService = bookingService;
@@ -80,7 +96,9 @@ public class OwnerManagementApiController {
         this.bankAccountService = bankAccountService;
         this.vehicleCategoriesRepository = vehicleCategoriesRepository;
         this.transmissionTypeRepository = transmissionTypeRepository;
+        this.bookingRepository = bookingRepository;
         this.objectMapper = objectMapper;
+        this.cloudinary = cloudinary;
     }
 
     @GetMapping("/metadata")
@@ -178,6 +196,12 @@ public class OwnerManagementApiController {
             throw new IllegalArgumentException("Bien so xe nay da ton tai");
         }
 
+        Vehicle.VehicleStatus targetStatus = vehicle.getStatus();
+        if (request.status() != null && !request.status().isBlank()) {
+            targetStatus = Vehicle.VehicleStatus.valueOf(request.status().trim());
+        }
+        ensureVehicleCanBeSetAvailable(vehicleId, targetStatus);
+
         applyVehicleRequest(vehicle, request, false);
         vehicle.setLastUpdatedBy(currentUser);
         Vehicle saved = vehicleService.updateVehicle(vehicle);
@@ -201,7 +225,10 @@ public class OwnerManagementApiController {
             throw new IllegalArgumentException("Status la bat buoc");
         }
 
-        vehicle.setStatus(Vehicle.VehicleStatus.valueOf(request.status().trim()));
+        Vehicle.VehicleStatus nextStatus = Vehicle.VehicleStatus.valueOf(request.status().trim());
+        ensureVehicleCanBeSetAvailable(vehicleId, nextStatus);
+
+        vehicle.setStatus(nextStatus);
         vehicle.setLastUpdatedBy(currentUser);
         vehicleService.updateVehicle(vehicle);
 
@@ -224,6 +251,55 @@ public class OwnerManagementApiController {
 
         vehicleService.deleteVehicle(vehicleId);
         return ResponseEntity.ok(ApiResponse.success("Xoa xe thanh cong", Map.of("vehicleId", vehicleId)));
+    }
+
+    @PostMapping("/vehicles/upload-main-image")
+    @Operation(summary = "Upload anh chinh xe cho owner")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> uploadVehicleMainImage(@RequestParam("file") MultipartFile file,
+                                                                                    Authentication authentication) throws Exception {
+        User currentUser = getCurrentUser(authentication);
+        ensureOwnerArea(currentUser);
+
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File anh chinh khong hop le");
+        }
+        if (file.getContentType() == null || !file.getContentType().startsWith("image/")) {
+            throw new IllegalArgumentException("Chi ho tro file hinh anh");
+        }
+
+        Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("folder", "ecodana/vehicles"));
+        String url = String.valueOf(uploadResult.get("secure_url"));
+
+        return ResponseEntity.ok(ApiResponse.success("Upload anh chinh thanh cong", Map.of("url", url)));
+    }
+
+    @PostMapping("/vehicles/upload-auxiliary-images")
+    @Operation(summary = "Upload anh phu xe cho owner")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> uploadVehicleAuxiliaryImages(@RequestParam("files") MultipartFile[] files,
+                                                                                          Authentication authentication) throws Exception {
+        User currentUser = getCurrentUser(authentication);
+        ensureOwnerArea(currentUser);
+
+        if (files == null || files.length == 0) {
+            throw new IllegalArgumentException("Khong co file anh phu nao duoc chon");
+        }
+        if (files.length > 10) {
+            throw new IllegalArgumentException("Chi duoc upload toi da 10 anh phu moi lan");
+        }
+
+        List<String> urls = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+            if (file.getContentType() == null || !file.getContentType().startsWith("image/")) {
+                throw new IllegalArgumentException("Chi ho tro file hinh anh");
+            }
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("folder", "ecodana/vehicles/auxiliary"));
+            urls.add(String.valueOf(uploadResult.get("secure_url")));
+        }
+
+        return ResponseEntity.ok(ApiResponse.success("Upload anh phu thanh cong", Map.of("urls", urls)));
     }
 
     @GetMapping("/bookings")
@@ -323,7 +399,7 @@ public class OwnerManagementApiController {
                 currentUser,
                 request.notes(),
                 new ArrayList<>(),
-                Boolean.TRUE.equals(request.setMaintenance())
+                true
         );
 
         return ResponseEntity.ok(ApiResponse.success("Hoan tat chuyen di thanh cong", toOwnerBookingPayload(updated)));
@@ -416,6 +492,16 @@ public class OwnerManagementApiController {
             transmissionTypeRepository.findById(request.transmissionTypeId()).ifPresent(vehicle::setTransmissionType);
         } else {
             vehicle.setTransmissionType(null);
+        }
+    }
+
+    private void ensureVehicleCanBeSetAvailable(String vehicleId, Vehicle.VehicleStatus nextStatus) {
+        if (nextStatus != Vehicle.VehicleStatus.Available) {
+            return;
+        }
+        boolean hasBlockingBookings = bookingRepository.hasBookingsByVehicleAndStatuses(vehicleId, BLOCKING_BOOKING_STATUSES);
+        if (hasBlockingBookings) {
+            throw new IllegalArgumentException("Khong the chuyen xe sang Available vi van con booking dang xu ly.");
         }
     }
 

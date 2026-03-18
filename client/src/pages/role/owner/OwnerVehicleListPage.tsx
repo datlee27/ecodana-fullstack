@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { deleteOwnerVehicle, getOwnerMeta, getOwnerVehicles, updateOwnerVehicleStatus } from '../../../api/ownerApi';
+import { deleteOwnerVehicle, getOwnerApiErrorMessage, getOwnerMeta, getOwnerVehicles, updateOwnerVehicleStatus } from '../../../api/ownerApi';
+import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { EmptyState } from '../../../components/common/EmptyState';
 import { ErrorState } from '../../../components/common/ErrorState';
 import { LoadingState } from '../../../components/common/LoadingState';
@@ -15,6 +16,7 @@ const OwnerVehicleListPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<OwnerVehicle | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -34,17 +36,17 @@ const OwnerVehicleListPage = () => {
     void loadData();
   }, []);
 
-  const onDelete = async (vehicleId: string) => {
-    const confirmed = window.confirm('Ban co chac chan muon xoa xe nay?');
-    if (!confirmed) return;
+  const onDelete = async () => {
+    if (!deleteTarget) return;
 
-    setProcessingId(vehicleId);
+    setProcessingId(deleteTarget.vehicleId);
     try {
-      await deleteOwnerVehicle(vehicleId);
-      setVehicles((prev) => prev.filter((vehicle) => vehicle.vehicleId !== vehicleId));
+      await deleteOwnerVehicle(deleteTarget.vehicleId);
+      setVehicles((prev) => prev.filter((vehicle) => vehicle.vehicleId !== deleteTarget.vehicleId));
       success('Da xoa xe thanh cong.');
-    } catch {
-      notifyError('Khong the xoa xe. Vui long thu lai.');
+      setDeleteTarget(null);
+    } catch (apiError) {
+      notifyError(getOwnerApiErrorMessage(apiError, 'Khong the xoa xe. Vui long thu lai.'));
     } finally {
       setProcessingId(null);
     }
@@ -66,8 +68,8 @@ const OwnerVehicleListPage = () => {
         ),
       );
       success('Da cap nhat trang thai xe.');
-    } catch {
-      notifyError('Khong the cap nhat trang thai xe.');
+    } catch (apiError) {
+      notifyError(getOwnerApiErrorMessage(apiError, 'Khong the cap nhat trang thai xe.'));
     } finally {
       setProcessingId(null);
     }
@@ -145,7 +147,7 @@ const OwnerVehicleListPage = () => {
                       <button
                         type="button"
                         disabled={processingId === vehicle.vehicleId}
-                        onClick={() => void onDelete(vehicle.vehicleId)}
+                        onClick={() => setDeleteTarget(vehicle)}
                         className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Delete
@@ -158,6 +160,22 @@ const OwnerVehicleListPage = () => {
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Xoa xe"
+        message={
+          deleteTarget
+            ? `Ban co chac chan muon xoa xe ${deleteTarget.vehicleModel} (${deleteTarget.licensePlate || 'N/A'})?`
+            : ''
+        }
+        confirmLabel="Xoa xe"
+        cancelLabel="Huy"
+        tone="danger"
+        busy={deleteTarget ? processingId === deleteTarget.vehicleId : false}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => void onDelete()}
+      />
     </section>
   );
 };
