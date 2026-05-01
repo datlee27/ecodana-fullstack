@@ -1,147 +1,174 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { BatteryCharging, BookOpenCheck, Heart, LayoutDashboard, Leaf, LogIn, LogOut, Menu, User, UserPlus, X } from 'lucide-react';
+import { Link, NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { Button, cn } from '../../design-system';
 import { useAuth } from '../../hooks/useAuth';
 import { getRoleHomePath } from '../../utils/role';
+
+const navItems = [
+  { to: '/', label: 'Trang chủ' },
+  { to: '/vehicles', label: 'Tìm xe' },
+  { to: '/booking/my-bookings', label: 'Đơn đặt xe', authTarget: '/login' },
+  { to: '/favorites', label: 'Yêu thích', requiresAuth: true },
+  { to: '/register-car-info', label: 'Đăng ký chủ xe' },
+];
 
 export const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAuthenticated, user, logout } = useAuth();
+  const dashboardPath = getRoleHomePath(user);
 
-  const dashboardPath = useMemo(() => {
-    return getRoleHomePath(user);
-  }, [user?.role]);
+  const renderNavLink = (item: (typeof navItems)[number], mobile = false) => {
+    if (item.requiresAuth && !isAuthenticated) return null;
+    const target = item.authTarget && !isAuthenticated ? item.authTarget : item.to;
+
+    return (
+      <NavLink
+        key={item.to}
+        to={target}
+        onClick={() => mobile && setMobileOpen(false)}
+        className={({ isActive }) =>
+          cn(
+            mobile
+              ? 'block rounded-lg px-3 py-2 text-sm font-semibold'
+              : 'rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
+            isActive && target === item.to
+              ? 'bg-primary-soft text-primary'
+              : 'text-text-base hover:bg-muted hover:text-primary',
+          )
+        }
+      >
+        {item.label}
+      </NavLink>
+    );
+  };
 
   return (
-    <header id="main-nav" className="bg-white shadow-lg fixed w-full top-0 z-50 nav-font-poppins">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center lg:hidden">
-            <button
-              id="sidebar-toggle"
-              className="text-gray-600 hover:text-gray-900 mr-4"
-              type="button"
-              onClick={() => setMobileOpen((prev) => !prev)}
-            >
-              <i className="fas fa-bars text-xl" />
-            </button>
-          </div>
+    <header id="main-nav" className="fixed left-0 top-0 z-50 w-full border-b border-border bg-surface/95 shadow-sm backdrop-blur nav-font-poppins">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between gap-4">
+          <Link to="/" className="flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white">
+              <Leaf className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span className="text-xl font-bold text-primary">EcoDana</span>
+          </Link>
 
-          <div className="flex items-center flex-shrink-0">
-            <Link to="/" className="logo flex items-center">
-              <div className="logo-icon bg-primary w-8 h-8 rounded-lg mr-2 flex items-center justify-center">
-                <i className="fas fa-leaf text-white text-sm" />
-              </div>
-              <span className="logo-text font-bold text-xl text-primary">EcoDana</span>
-            </Link>
-          </div>
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Điều hướng chính">
+            {navItems.map((item) => renderNavLink(item))}
+          </nav>
 
-          <div className="hidden md:flex flex-grow justify-center space-x-8">
-            <Link to="/" className="text-gray-700 hover:text-primary transition-colors font-semibold">
-              Home
-            </Link>
-            <Link to="/vehicles" className="text-gray-700 hover:text-primary transition-colors font-semibold">
-              Vehicles
-            </Link>
-            <Link
-              to={isAuthenticated ? '/booking/my-bookings' : '/login'}
-              className="text-gray-700 hover:text-primary transition-colors font-semibold"
-            >
-              My Bookings
-            </Link>
-            {isAuthenticated ? (
-              <Link to="/favorites" className="text-gray-700 hover:text-primary transition-colors font-semibold">
-                Favorites
-              </Link>
-            ) : null}
-            <Link to="/register-car-info" className="text-gray-700 hover:text-primary transition-colors font-semibold">
-              Become a Car Owner
-            </Link>
-          </div>
-
-          <div className="flex items-center">
+          <div className="hidden items-center gap-3 md:flex">
             {!isAuthenticated ? (
-              <div className="flex items-center space-x-4">
-                <Link to="/login" className="text-primary hover:text-accent transition-colors flex items-center font-semibold">
-                  <i className="fas fa-sign-in-alt mr-1" />Sign In
+              <>
+                <Link to="/login" className="inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-primary transition-colors hover:bg-primary-soft">
+                  <LogIn className="h-4 w-4" aria-hidden="true" />
+                  Đăng nhập
                 </Link>
-                <Link
-                  to="/register"
-                  className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-accent transition-colors flex items-center font-semibold"
-                >
-                  <i className="fas fa-user-plus mr-1" />Sign Up
+                <Link to="/register" className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-hover">
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
+                  Đăng ký
                 </Link>
-              </div>
+              </>
             ) : (
-              <div id="userMenu" className="flex items-center space-x-4">
-                <div className="relative group">
-                  <button className="flex items-center space-x-2 text-gray-700 hover:text-primary transition-colors" type="button">
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                      <i className="fas fa-user text-white text-sm" />
-                    </div>
-                    <span className="hidden md:inline font-semibold">{user?.firstName || user?.username || 'User'}</span>
-                    <i className="fas fa-chevron-down text-xs" />
-                  </button>
+              <div id="userMenu" className="group relative">
+                <button type="button" className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-text-base transition-colors hover:bg-muted hover:text-primary">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white">
+                    <User className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <span className="max-w-32 truncate text-sm font-semibold">{user?.firstName || user?.username || 'Tài khoản'}</span>
+                </button>
 
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                    <div className="py-2">
-                      <div className="px-4 py-2 border-b border-gray-100">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {user?.firstName || ''} {user?.lastName || ''}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-                      </div>
-
-                      <div className="py-1">
-                        <Link to={dashboardPath} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                          <i className="fas fa-tachometer-alt w-5 mr-2 text-gray-500" />
-                          Dashboard
-                        </Link>
-                      </div>
-
-                      <div className="border-t border-gray-100 my-1" />
-
-                      <Link to="/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        <i className="fas fa-user-edit w-5 mr-2 text-gray-500" />
-                        My Profile
-                      </Link>
-
-                      <Link to="/booking/my-bookings" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        <i className="fas fa-history w-5 mr-2 text-gray-500" />
-                        My Bookings
-                      </Link>
-
-                      <div className="border-t border-gray-100 my-1" />
-
-                      <button
-                        className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                        type="button"
-                        onClick={() => void logout()}
-                      >
-                        <i className="fas fa-sign-out-alt w-5 mr-2" />
-                        Logout
-                      </button>
-                    </div>
+                <div className="invisible absolute right-0 mt-2 w-64 rounded-xl border border-border bg-surface opacity-0 shadow-popover transition-all duration-150 group-hover:visible group-hover:opacity-100">
+                  <div className="border-b border-border px-4 py-3">
+                    <p className="truncate text-sm font-semibold text-text-strong">
+                      {user?.firstName || ''} {user?.lastName || ''}
+                    </p>
+                    <p className="truncate text-xs text-text-muted">{user?.email}</p>
+                  </div>
+                  <div className="py-2">
+                    <Link to={dashboardPath} className="flex items-center gap-2 px-4 py-2 text-sm text-text-base hover:bg-muted">
+                      <LayoutDashboard className="h-4 w-4 text-text-muted" aria-hidden="true" />
+                      Bảng điều khiển
+                    </Link>
+                    <Link to="/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-text-base hover:bg-muted">
+                      <User className="h-4 w-4 text-text-muted" aria-hidden="true" />
+                      Hồ sơ của tôi
+                    </Link>
+                    <Link to="/booking/my-bookings" className="flex items-center gap-2 px-4 py-2 text-sm text-text-base hover:bg-muted">
+                      <BookOpenCheck className="h-4 w-4 text-text-muted" aria-hidden="true" />
+                      Đơn đặt xe
+                    </Link>
+                    <Link to="/favorites" className="flex items-center gap-2 px-4 py-2 text-sm text-text-base hover:bg-muted">
+                      <Heart className="h-4 w-4 text-text-muted" aria-hidden="true" />
+                      Xe yêu thích
+                    </Link>
+                  </div>
+                  <div className="border-t border-border py-2">
+                    <button
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm font-medium text-danger hover:bg-muted"
+                      type="button"
+                      onClick={() => void logout()}
+                    >
+                      <LogOut className="h-4 w-4" aria-hidden="true" />
+                      Đăng xuất
+                    </button>
                   </div>
                 </div>
               </div>
             )}
           </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileOpen((prev) => !prev)}
+            aria-expanded={mobileOpen}
+            aria-label={mobileOpen ? 'Đóng menu' : 'Mở menu'}
+          >
+            {mobileOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+          </Button>
         </div>
 
         {mobileOpen ? (
-          <div className="md:hidden border-t border-gray-100 py-3 space-y-2">
-            <Link to="/" className="block text-gray-700 font-semibold" onClick={() => setMobileOpen(false)}>
-              Home
-            </Link>
-            <Link to="/vehicles" className="block text-gray-700 font-semibold" onClick={() => setMobileOpen(false)}>
-              Vehicles
-            </Link>
-            <Link to="/booking/my-bookings" className="block text-gray-700 font-semibold" onClick={() => setMobileOpen(false)}>
-              My Bookings
-            </Link>
-            <Link to="/favorites" className="block text-gray-700 font-semibold" onClick={() => setMobileOpen(false)}>
-              Favorites
-            </Link>
+          <div className="border-t border-border py-3 md:hidden">
+            <nav className="space-y-1" aria-label="Điều hướng di động">
+              {navItems.map((item) => renderNavLink(item, true))}
+            </nav>
+            <div className="mt-3 border-t border-border pt-3">
+              {!isAuthenticated ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <Link to="/login" onClick={() => setMobileOpen(false)} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface text-sm font-semibold text-text-strong">
+                    <LogIn className="h-4 w-4" aria-hidden="true" />
+                    Đăng nhập
+                  </Link>
+                  <Link to="/register" onClick={() => setMobileOpen(false)} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-white">
+                    <UserPlus className="h-4 w-4" aria-hidden="true" />
+                    Đăng ký
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Link to={dashboardPath} onClick={() => setMobileOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-text-base hover:bg-muted">
+                    <BatteryCharging className="h-4 w-4 text-primary" aria-hidden="true" />
+                    Bảng điều khiển
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      void logout();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-danger hover:bg-muted"
+                  >
+                    <LogOut className="h-4 w-4" aria-hidden="true" />
+                    Đăng xuất
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
       </div>

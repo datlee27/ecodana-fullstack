@@ -176,13 +176,8 @@ public class BookingController {
             }
 
             // Debug logging
-            System.out.println("=== Checkout Calculation ===");
-            System.out.println("Rental Days: " + bookingRequest.getRentalDays());
-            System.out.println("Daily Price: " + dailyPrice);
-            System.out.println("Rental Price: " + rentalPrice);
-            System.out.println("Discount Code: " + discountCode);
-            System.out.println("Discount Amount: " + discountAmount);
-            System.out.println("Total Amount: " + totalAmount);
+            System.out.printf("[CHECKOUT] Days=%s, Daily=%s, Rental=%s, DiscountCode=%s, DiscountAmt=%s, Total=%s%n",
+                    bookingRequest.getRentalDays(), dailyPrice, rentalPrice, discountCode, discountAmount, totalAmount);
 
             // Add attributes to model
             model.addAttribute("vehicle", vehicle);

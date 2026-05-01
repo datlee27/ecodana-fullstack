@@ -19,9 +19,38 @@ public class ContractApiController {
     private ContractService contractService;
 
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> getAllContracts() {
+    public ResponseEntity<List<Map<String, Object>>> getAllContracts(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search) {
         try {
             List<Contract> contracts = contractService.getAllContracts();
+            
+            // Apply filters
+            contracts = contracts.stream().filter(contract -> {
+                // Status filter
+                if (status != null && !status.isEmpty()) {
+                    try {
+                        Contract.ContractStatus filterStatus = Contract.ContractStatus.valueOf(status);
+                        if (contract.getStatus() != filterStatus) return false;
+                    } catch (IllegalArgumentException ignored) {}
+                }
+                
+                // Search filter (contractCode, userName, bookingCode)
+                if (search != null && !search.isEmpty()) {
+                    String searchLower = search.toLowerCase();
+                    boolean matches = false;
+                    if (contract.getContractCode() != null && contract.getContractCode().toLowerCase().contains(searchLower)) matches = true;
+                    if (contract.getUser() != null && contract.getUser().getFirstName() != null 
+                        && (contract.getUser().getFirstName() + " " + contract.getUser().getLastName()).toLowerCase().contains(searchLower)) matches = true;
+                    if (contract.getBooking() != null && contract.getBooking().getBookingCode() != null 
+                        && contract.getBooking().getBookingCode().toLowerCase().contains(searchLower)) matches = true;
+                    if (contract.getUser() != null && contract.getUser().getEmail() != null 
+                        && contract.getUser().getEmail().toLowerCase().contains(searchLower)) matches = true;
+                    if (!matches) return false;
+                }
+                
+                return true;
+            }).collect(Collectors.toList());
             
             List<Map<String, Object>> contractsData = contracts.stream().map(contract -> {
                 Map<String, Object> data = new HashMap<>();
@@ -120,6 +149,36 @@ public class ContractApiController {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).build();
+        }
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<Map<String, Object>> updateContractStatus(
+            @PathVariable String id,
+            @RequestParam String status) {
+        try {
+            Contract.ContractStatus newStatus = Contract.ContractStatus.valueOf(status);
+            return contractService.getContractById(id)
+                .map(contract -> {
+                    contract.setStatus(newStatus);
+                    contractService.saveContract(contract);
+                    return ResponseEntity.ok(Map.<String, Object>of(
+                        "status", "success",
+                        "message", "Contract status updated to " + status
+                    ));
+                })
+                .orElse(ResponseEntity.status(404).body(
+                    Map.of("status", "error", "message", "Contract not found: " + id)
+                ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(
+                Map.of("status", "error", "message", "Invalid status value: " + status)
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(
+                Map.of("status", "error", "message", "Failed to update status: " + e.getMessage())
+            );
         }
     }
 }

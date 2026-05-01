@@ -1,41 +1,23 @@
 import axios from 'axios';
+import { CalendarDays, Car, CheckCircle2, FileText, MapPin, Tag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  createBooking,
-  getAvailableDiscounts,
-  previewCheckout,
-} from '../../../api/bookingApi';
+import { createBooking, getAvailableDiscounts, previewCheckout } from '../../../api/bookingApi';
 import { getVehicleDetail } from '../../../api/vehicleApi';
+import { Button, EmptyState, Input, PageContainer, Select, Skeleton } from '../../../design-system';
+import {
+  BookingInfoCard,
+  BookingStepIndicator,
+  BookingSummaryPanel,
+  formatCurrency,
+  formatDateTime,
+  formatDateTimeFromInputs,
+  type BookingSummaryRow,
+} from '../../../features/booking';
 import { useNotification } from '../../../hooks/useNotification';
 import type { ApiErrorResponse } from '../../../types/api';
-import type {
-  CheckoutPreviewData,
-  DiscountOption,
-} from '../../../types/booking';
+import type { CheckoutPreviewData, DiscountOption } from '../../../types/booking';
 import type { Vehicle } from '../../../types/vehicle';
-
-const formatCurrency = (value: number) =>
-  `${new Intl.NumberFormat('vi-VN').format(Math.round(value))} ₫`;
-
-const formatDateTime = (isoDateTime: string) => {
-  const date = new Date(isoDateTime);
-  if (Number.isNaN(date.getTime())) {
-    return isoDateTime;
-  }
-  return date.toLocaleString('vi-VN');
-};
-
-const formatDateTimeFromInputs = (date: string, time: string) => {
-  if (!date || !time) return '--';
-  const parsed = new Date(`${date}T${time}:00`);
-  if (Number.isNaN(parsed.getTime())) {
-    return `${date} ${time}`;
-  }
-  return parsed.toLocaleString('vi-VN', {
-    hour12: false,
-  });
-};
 
 const getApiErrorMessage = (error: unknown, fallback: string) => {
   if (!axios.isAxiosError<ApiErrorResponse>(error)) {
@@ -46,13 +28,29 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
   return apiError?.error ?? error.response?.data?.message ?? fallback;
 };
 
+const CheckoutLoadingState = () => {
+  return (
+    <section className="bg-canvas pb-16">
+      <PageContainer className="space-y-8 py-10">
+        <div className="flex justify-center">
+          <Skeleton className="h-10 w-full max-w-2xl" />
+        </div>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <Skeleton className="h-48 w-full rounded-xl" />
+            <Skeleton className="h-56 w-full rounded-xl" />
+            <Skeleton className="h-36 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-[28rem] w-full rounded-xl" />
+        </div>
+      </PageContainer>
+    </section>
+  );
+};
+
 const BookingCheckoutPage = () => {
   const navigate = useNavigate();
-  const {
-    warning,
-    error: notifyError,
-    success,
-  } = useNotification();
+  const { warning, error: notifyError, success } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const vehicleId = searchParams.get('vehicleId') ?? '';
@@ -96,7 +94,7 @@ const BookingCheckoutPage = () => {
 
     if (!hasRequiredParams) {
       setLoading(false);
-      setError('Thieu thong tin dat xe. Vui long quay lai trang chi tiet xe va chon thue lai.');
+      setError('Thiếu thông tin đặt xe. Vui lòng quay lại trang chi tiết xe và chọn thuê lại.');
       return;
     }
 
@@ -111,7 +109,7 @@ const BookingCheckoutPage = () => {
         setVehicle(vehicleData);
         setDiscounts(discountData);
       } catch (apiError) {
-        setError(getApiErrorMessage(apiError, 'Khong the tai trang checkout.'));
+        setError(getApiErrorMessage(apiError, 'Không thể tải trang checkout.'));
       } finally {
         setLoading(false);
       }
@@ -148,30 +146,45 @@ const BookingCheckoutPage = () => {
         setPreview(response);
       } catch (apiError) {
         setPreview(null);
-        setPreviewError(getApiErrorMessage(apiError, 'Khong the tinh toan chi phi dat xe.'));
+        setPreviewError(getApiErrorMessage(apiError, 'Không thể tính toán chi phí đặt xe.'));
       } finally {
         setPreviewLoading(false);
       }
     };
 
     void loadPreview();
-  }, [
-    discountCode,
-    pickupDate,
-    pickupTime,
-    returnDate,
-    returnTime,
-    vehicle,
-    vehicleId,
-  ]);
+  }, [discountCode, pickupDate, pickupTime, returnDate, returnTime, vehicle, vehicleId]);
 
   const durationText = useMemo(() => {
     if (!preview) return '--';
     const remainingHours = Number(preview.remainingHours ?? 0);
     if (remainingHours <= 0) {
-      return `${preview.fullDays} ngay`;
+      return `${preview.fullDays} ngày`;
     }
-    return `${preview.fullDays} ngay ${remainingHours.toFixed(2)} gio`;
+    return `${preview.fullDays} ngày ${remainingHours.toFixed(2)} giờ`;
+  }, [preview]);
+
+  const summaryRows = useMemo<BookingSummaryRow[]>(() => {
+    if (!preview) return [];
+    return [
+      {
+        label: 'Đơn giá thuê',
+        value: formatCurrency(preview.vehicleRentalFee),
+        helper:
+          preview.remainingHours > 0
+            ? `${preview.fullDays} ngày x ${formatCurrency(preview.dailyPrice)} + ${preview.remainingHours.toFixed(2)} giờ x ${formatCurrency(preview.hourlyPrice)}`
+            : undefined,
+      },
+      ...(preview.discountAmount > 0
+        ? [
+            {
+              label: `Giảm giá${preview.discountCode ? ` (${preview.discountCode})` : ''}`,
+              value: `-${formatCurrency(preview.discountAmount)}`,
+              tone: 'success' as const,
+            },
+          ]
+        : []),
+    ];
   }, [preview]);
 
   const handleStartEditTime = () => {
@@ -192,14 +205,14 @@ const BookingCheckoutPage = () => {
 
   const handleSaveEditTime = () => {
     if (!editPickupDate || !editPickupTime || !editReturnDate || !editReturnTime) {
-      warning('Vui long dien day du ngay gio nhan/tra xe.');
+      warning('Vui lòng điền đầy đủ ngày giờ nhận/trả xe.');
       return;
     }
 
     const start = new Date(`${editPickupDate}T${editPickupTime}:00`);
     const end = new Date(`${editReturnDate}T${editReturnTime}:00`);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
-      warning('Ngay tra xe phai sau ngay nhan xe.');
+      warning('Ngày trả xe phải sau ngày nhận xe.');
       return;
     }
 
@@ -214,7 +227,7 @@ const BookingCheckoutPage = () => {
       returnTime: editReturnTime,
     });
     setEditMode(false);
-    success('Da cap nhat thoi gian thue xe.');
+    success('Đã cập nhật thời gian thuê xe.');
   };
 
   const handleApplyDiscount = (nextCode: string) => {
@@ -224,12 +237,12 @@ const BookingCheckoutPage = () => {
 
   const handleConfirmBooking = async () => {
     if (!agreeTerms) {
-      warning('Vui long dong y dieu khoan va dieu kien truoc khi xac nhan dat xe.');
+      warning('Vui lòng đồng ý điều khoản và điều kiện trước khi xác nhận đặt xe.');
       return;
     }
 
     if (!vehicle || !preview) {
-      warning('Thong tin checkout chua san sang. Vui long thu lai.');
+      warning('Thông tin checkout chưa sẵn sàng. Vui lòng thử lại.');
       return;
     }
 
@@ -248,7 +261,7 @@ const BookingCheckoutPage = () => {
       });
       navigate(`/booking/payment/${created.bookingId}`);
     } catch (apiError) {
-      const message = getApiErrorMessage(apiError, 'Khong the tao don dat xe.');
+      const message = getApiErrorMessage(apiError, 'Không thể tạo đơn đặt xe.');
       setError(message);
       notifyError(message);
     } finally {
@@ -257,355 +270,172 @@ const BookingCheckoutPage = () => {
   };
 
   if (loading) {
-    return (
-      <main className="pb-16">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-          Dang tai checkout...
-        </div>
-      </main>
-    );
+    return <CheckoutLoadingState />;
   }
 
   if (error || !vehicle) {
     return (
-      <main className="pb-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4">
-            {error ?? 'Khong tim thay xe.'}
-          </div>
-          <Link
-            to={vehicleId ? `/vehicles/${vehicleId}` : '/vehicles'}
-            className="inline-flex items-center mt-4 text-green-600 hover:text-green-700 font-semibold"
-          >
-            <i className="fas fa-arrow-left mr-2" />
-            Quay lai
-          </Link>
-        </div>
-      </main>
+      <section className="bg-canvas pb-16">
+        <PageContainer className="py-10">
+          <EmptyState
+            tone={error ? 'danger' : 'neutral'}
+            title={error ? 'Không thể tải trang checkout' : 'Không tìm thấy xe'}
+            description={error ?? 'Vui lòng quay lại danh sách xe và thử lại.'}
+            action={
+              <Link
+                to={vehicleId ? `/vehicles/${vehicleId}` : '/vehicles'}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-text-strong transition-colors hover:bg-muted"
+              >
+                Quay lại
+              </Link>
+            }
+          />
+        </PageContainer>
+      </section>
     );
   }
 
   return (
-    <main className="pb-16">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <div className="mb-8">
-          <div className="flex items-center justify-center">
-            <div className="flex items-center">
-              <div className="flex items-center text-green-500">
-                <div className="w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center font-bold">
-                  <i className="fas fa-check" />
-                </div>
-                <span className="ml-2 font-semibold">Chon xe</span>
-              </div>
-              <div className="w-24 h-1 bg-green-500 mx-4" />
-              <div className="flex items-center text-green-500">
-                <div className="w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center font-bold">2</div>
-                <span className="ml-2 font-semibold">Xac nhan va thanh toan</span>
-              </div>
-              <div className="w-24 h-1 bg-gray-300 mx-4" />
-              <div className="flex items-center text-gray-400">
-                <div className="w-10 h-10 bg-gray-300 text-white rounded-full flex items-center justify-center font-bold">3</div>
-                <span className="ml-2">Hoan tat</span>
-              </div>
-            </div>
-          </div>
-        </div>
+    <section className="bg-canvas pb-16">
+      <PageContainer className="space-y-8 py-10">
+        <BookingStepIndicator currentStep={2} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4 flex items-center">
-                <i className="fas fa-car text-green-500 mr-2" />
-                Thong tin xe
-              </h2>
-
-              <div className="flex gap-4">
-                <img
-                  src={vehicle.mainImageUrl || 'https://via.placeholder.com/128x128?text=No+Image'}
-                  alt={vehicle.vehicleModel}
-                  className="w-32 h-32 object-cover rounded-lg"
-                />
-
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{vehicle.vehicleModel}</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="flex items-center text-gray-600">
-                      <i className="fas fa-id-card w-5 mr-2" />
-                      <span>
-                        Bien so: <span className="font-semibold">{vehicle.licensePlate || 'N/A'}</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <i className="fas fa-chair w-5 mr-2" />
-                      <span>
-                        So cho: <span className="font-semibold">{vehicle.seats} cho</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <i className="fas fa-cog w-5 mr-2" />
-                      <span>{vehicle.transmissionTypeName || 'So tu dong'}</span>
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <i className="fas fa-bolt w-5 mr-2" />
-                      <span>Dien</span>
-                    </div>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <BookingInfoCard title="Thông tin xe" icon={<Car className="h-5 w-5 text-primary" aria-hidden="true" />}>
+              <div className="flex flex-col gap-4 sm:flex-row">
+                {vehicle.mainImageUrl ? (
+                  <img src={vehicle.mainImageUrl} alt={vehicle.vehicleModel} className="h-36 w-full rounded-lg object-cover sm:w-40" />
+                ) : (
+                  <Skeleton className="h-36 w-full shrink-0 rounded-lg sm:w-40" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xl font-bold text-text-strong">{vehicle.vehicleModel}</h2>
+                  <div className="mt-4 grid gap-3 text-sm text-text-base sm:grid-cols-2">
+                    <p>Biển số: <span className="font-semibold">{vehicle.licensePlate || 'Theo dữ liệu xe'}</span></p>
+                    <p>Số chỗ: <span className="font-semibold">{vehicle.seats} chỗ</span></p>
+                    <p>Truyền động: <span className="font-semibold">{vehicle.transmissionTypeName || 'Tự động'}</span></p>
+                    <p>Nhiên liệu: <span className="font-semibold">Điện</span></p>
                   </div>
                 </div>
               </div>
-            </div>
+            </BookingInfoCard>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold flex items-center">
-                  <i className="fas fa-calendar-alt text-green-500 mr-2" />
-                  Thoi gian thue
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => (editMode ? handleCancelEditTime() : handleStartEditTime())}
-                  className="text-green-600 hover:text-green-700 font-semibold text-sm"
-                >
-                  <i className="fas fa-edit mr-1" />
-                  {editMode ? 'Huy' : 'Chinh sua'}
-                </button>
-              </div>
-
+            <BookingInfoCard
+              title="Thời gian thuê"
+              icon={<CalendarDays className="h-5 w-5 text-primary" aria-hidden="true" />}
+              action={
+                <Button type="button" variant="ghost" onClick={() => (editMode ? handleCancelEditTime() : handleStartEditTime())}>
+                  {editMode ? 'Hủy' : 'Chỉnh sửa'}
+                </Button>
+              }
+            >
               {!editMode ? (
-                <div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">Nhan xe</p>
-                      <p className="font-bold text-gray-900">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="rounded-lg bg-muted p-4">
+                      <p className="text-sm text-text-muted">Nhận xe</p>
+                      <p className="mt-1 font-semibold text-text-strong">
                         {preview ? formatDateTime(preview.pickupDateTime) : formatDateTimeFromInputs(pickupDate, pickupTime)}
                       </p>
                     </div>
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">Tra xe</p>
-                      <p className="font-bold text-gray-900">
+                    <div className="rounded-lg bg-muted p-4">
+                      <p className="text-sm text-text-muted">Trả xe</p>
+                      <p className="mt-1 font-semibold text-text-strong">
                         {preview ? formatDateTime(preview.returnDateTime) : formatDateTimeFromInputs(returnDate, returnTime)}
                       </p>
                     </div>
                   </div>
-
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center">
-                      <i className="fas fa-clock text-blue-500 mr-2" />
-                      <span className="text-gray-700">
-                        Thoi gian thue:{' '}
-                        <span className="font-bold text-blue-600">{durationText}</span>
-                      </span>
-                    </div>
+                  <div className="rounded-lg border border-info/20 bg-secondary-soft p-4 text-sm text-text-base">
+                    Thời gian thuê: <span className="font-semibold text-info">{durationText}</span>
                   </div>
                 </div>
               ) : (
-                <div>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Nhan xe</label>
-                      <input
-                        type="date"
-                        value={editPickupDate}
-                        onChange={(event) => setEditPickupDate(event.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 mb-2"
-                      />
-                      <input
-                        type="time"
-                        value={editPickupTime}
-                        onChange={(event) => setEditPickupTime(event.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Tra xe</label>
-                      <input
-                        type="date"
-                        value={editReturnDate}
-                        onChange={(event) => setEditReturnDate(event.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 mb-2"
-                      />
-                      <input
-                        type="time"
-                        value={editReturnTime}
-                        onChange={(event) => setEditReturnTime(event.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Input label="Ngày nhận" type="date" value={editPickupDate} onChange={(event) => setEditPickupDate(event.target.value)} />
+                    <Input label="Giờ nhận" type="time" value={editPickupTime} onChange={(event) => setEditPickupTime(event.target.value)} />
+                    <Input label="Ngày trả" type="date" value={editReturnDate} onChange={(event) => setEditReturnDate(event.target.value)} />
+                    <Input label="Giờ trả" type="time" value={editReturnTime} onChange={(event) => setEditReturnTime(event.target.value)} />
                   </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSaveEditTime}
-                      className="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 font-semibold"
-                    >
-                      <i className="fas fa-check mr-1" /> Luu thay doi
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCancelEditTime}
-                      className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 font-semibold"
-                    >
-                      <i className="fas fa-times mr-1" /> Huy
-                    </button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" onClick={handleSaveEditTime}>Lưu thay đổi</Button>
+                    <Button type="button" variant="outline" onClick={handleCancelEditTime}>Hủy</Button>
                   </div>
                 </div>
               )}
-            </div>
+            </BookingInfoCard>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold flex items-center mb-4">
-                <i className="fas fa-map-marker-alt text-green-500 mr-2" />
-                Dia diem giao xe
-              </h2>
-              <p className="text-gray-800">{pickupLocation}</p>
-            </div>
+            <BookingInfoCard title="Địa điểm giao xe" icon={<MapPin className="h-5 w-5 text-info" aria-hidden="true" />}>
+              <p className="text-text-base">{pickupLocation}</p>
+            </BookingInfoCard>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold flex items-center mb-4">
-                <i className="fas fa-tag text-green-500 mr-2" />
-                Ma giam gia
-              </h2>
-
-              <select
-                value={discountCode}
-                onChange={(event) => handleApplyDiscount(event.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-              >
-                <option value="">Chon hoac bo ma giam gia</option>
+            <BookingInfoCard title="Mã giảm giá" icon={<Tag className="h-5 w-5 text-primary" aria-hidden="true" />}>
+              <Select value={discountCode} onChange={(event) => handleApplyDiscount(event.target.value)}>
+                <option value="">Không dùng mã giảm giá</option>
                 {discounts.map((discount) => (
                   <option key={discount.discountId} value={discount.voucherCode}>
-                    {discount.discountName} ({discount.discountType === 'Percentage'
-                      ? `${discount.discountValue}%`
-                      : `${new Intl.NumberFormat('vi-VN').format(discount.discountValue)} VND`})
+                    {discount.discountName} ({discount.discountType === 'Percentage' ? `${discount.discountValue}%` : formatCurrency(discount.discountValue)})
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </BookingInfoCard>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4 flex items-center">
-                <i className="fas fa-file-contract text-green-500 mr-2" />
-                Dieu khoan va dieu kien
-              </h2>
-
-              <div className="space-y-3 text-sm text-gray-700">
-                <div className="flex items-start">
-                  <i className="fas fa-check-circle text-green-500 mt-1 mr-2" />
-                  <span>Su dung xe dung muc dich, khong vi pham phap luat.</span>
-                </div>
-                <div className="flex items-start">
-                  <i className="fas fa-check-circle text-green-500 mt-1 mr-2" />
-                  <span>Khong su dung xe de cam co, the chap.</span>
-                </div>
-                <div className="flex items-start">
-                  <i className="fas fa-check-circle text-green-500 mt-1 mr-2" />
-                  <span>Giu gin xe sach se, khong hut thuoc trong xe.</span>
-                </div>
-                <div className="flex items-start">
-                  <i className="fas fa-check-circle text-green-500 mt-1 mr-2" />
-                  <span>Tra xe dung thoi gian da thoa thuan.</span>
-                </div>
+            <BookingInfoCard title="Điều khoản và điều kiện" icon={<FileText className="h-5 w-5 text-primary" aria-hidden="true" />}>
+              <div className="space-y-3 text-sm text-text-base">
+                {[
+                  'Sử dụng xe đúng mục đích và tuân thủ quy định pháp luật.',
+                  'Không sử dụng xe để cầm cố, thế chấp hoặc chuyển nhượng trái phép.',
+                  'Giữ gìn xe sạch sẽ và trả xe đúng thời gian đã thỏa thuận.',
+                ].map((item) => (
+                  <p key={item} className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
+                    {item}
+                  </p>
+                ))}
               </div>
-
-              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <label className="flex items-start cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={agreeTerms}
-                    onChange={(event) => setAgreeTerms(event.target.checked)}
-                    className="mt-1 mr-3 w-5 h-5 text-green-500 rounded focus:ring-green-500"
-                  />
-                  <span className="text-sm text-gray-700">
-                    Toi da doc va dong y voi Dieu khoan su dung va Chinh sach bao mat cua EcoDana.
-                  </span>
-                </label>
-              </div>
-            </div>
+              <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-lg border border-warning/20 bg-muted p-4">
+                <input
+                  type="checkbox"
+                  checked={agreeTerms}
+                  onChange={(event) => setAgreeTerms(event.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-text-base">
+                  Tôi đã đọc và đồng ý với Điều khoản sử dụng và Chính sách bảo mật của EcoDana.
+                </span>
+              </label>
+            </BookingInfoCard>
           </div>
 
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
-              <h2 className="text-xl font-bold mb-4">Tom tat don hang</h2>
-
-              {previewLoading ? (
-                <div className="text-sm text-gray-500">Dang tinh toan chi phi...</div>
-              ) : null}
-
-              {previewError ? (
-                <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-                  {previewError}
-                </div>
-              ) : null}
-
-              {preview ? (
-                <>
-                  <div className="space-y-3 text-sm mb-4">
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <span className="text-gray-600 font-medium">Don gia thue</span>
-                        <span className="font-semibold">{formatCurrency(preview.vehicleRentalFee)}</span>
-                      </div>
-                      {preview.remainingHours > 0 ? (
-                        <div className="text-xs text-gray-500 ml-2">
-                          • {preview.fullDays} ngay × {formatCurrency(preview.dailyPrice)}
-                          <br />
-                          • {preview.remainingHours.toFixed(2)} gio × {formatCurrency(preview.hourlyPrice)}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {preview.discountAmount > 0 ? (
-                      <div className="flex justify-between text-green-600">
-                        <span className="font-medium">
-                          <i className="fas fa-tag mr-1" />
-                          Giam gia ({preview.discountCode || 'Voucher'})
-                        </span>
-                        <span className="font-semibold">-{formatCurrency(preview.discountAmount)}</span>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="border-t-2 border-gray-300 pt-4 mb-6">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-bold text-gray-900">Tong cong</span>
-                      <span className="text-2xl font-bold text-green-500">{formatCurrency(preview.totalAmount)}</span>
-                    </div>
-                  </div>
-                </>
-              ) : null}
-
-              <div className="space-y-3">
-                <button
+          <BookingSummaryPanel
+            rows={summaryRows}
+            totalLabel="Tổng cộng"
+            totalValue={preview ? formatCurrency(preview.totalAmount) : '--'}
+            loading={previewLoading}
+            error={previewError}
+            actions={
+              <>
+                <Button
                   type="button"
                   onClick={() => void handleConfirmBooking()}
                   disabled={submitting || previewLoading || !preview}
-                  className="w-full bg-green-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-600 transition-all shadow-md hover:shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  fullWidth
+                  size="lg"
+                  loading={submitting}
                 >
-                  <i className="fas fa-check-circle mr-2" />
-                  {submitting ? 'Dang tao don...' : 'Xac nhan dat xe'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => navigate(`/vehicles/${vehicle.vehicleId}`)}
-                  className="w-full border-2 border-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg hover:bg-gray-50 transition-all"
-                >
-                  <i className="fas fa-arrow-left mr-2" />
-                  Quay lai
-                </button>
-              </div>
-
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="flex items-center justify-center text-sm text-gray-600">
-                  <i className="fas fa-lock text-green-500 mr-2" />
-                  <span>Thanh toan an toan va bao mat</span>
-                </div>
-              </div>
-            </div>
-          </div>
+                  {submitting ? 'Đang tạo đơn...' : 'Xác nhận đặt xe'}
+                </Button>
+                <Button type="button" variant="outline" fullWidth size="lg" onClick={() => navigate(`/vehicles/${vehicle.vehicleId}`)}>
+                  Quay lại chi tiết xe
+                </Button>
+              </>
+            }
+            footer="Thanh toán được xử lý qua cổng PayOS ở bước tiếp theo."
+          />
         </div>
-      </div>
-    </main>
+      </PageContainer>
+    </section>
   );
 };
 

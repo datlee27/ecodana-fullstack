@@ -24,9 +24,31 @@ public class DiscountApiController {
     private DiscountRepository discountRepository;
 
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> getAllDiscounts() {
+    public ResponseEntity<List<Map<String, Object>>> getAllDiscounts(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean isActive) {
         try {
             List<Discount> discounts = discountRepository.findAll();
+            
+            // Apply filters
+            discounts = discounts.stream().filter(discount -> {
+                // isActive filter
+                if (isActive != null) {
+                    if (discount.getIsActive() != isActive) return false;
+                }
+                
+                // Search filter (discountName, voucherCode, description)
+                if (search != null && !search.isEmpty()) {
+                    String searchLower = search.toLowerCase();
+                    boolean matches = false;
+                    if (discount.getDiscountName() != null && discount.getDiscountName().toLowerCase().contains(searchLower)) matches = true;
+                    if (discount.getVoucherCode() != null && discount.getVoucherCode().toLowerCase().contains(searchLower)) matches = true;
+                    if (discount.getDescription() != null && discount.getDescription().toLowerCase().contains(searchLower)) matches = true;
+                    if (!matches) return false;
+                }
+                
+                return true;
+            }).collect(Collectors.toList());
             
             List<Map<String, Object>> discountsData = discounts.stream().map(discount -> {
                 Map<String, Object> data = new HashMap<>();

@@ -1,0 +1,53 @@
+:root {
+  --ds-font-sans: 'Be Vietnam Pro', sans-serif;
+  --ds-font-accent: 'Poppins', sans-serif;
+
+  --ds-color-primary: #4caf50;
+  --ds-color-primary-hover: #45a049;
+  --ds-color-primary-soft: #e8f5e9;
+  --ds-color-secondary: #2196f3;
+  --ds-color-secondary-soft: #e3f2fd;
+  --ds-color-accent: #81c784;
+
+  --ds-color-surface: #ffffff;
+  --ds-color-canvas: #f9fafb;
+  --ds-color-muted: #f1f5f9;
+  --ds-color-border: #e2e8f0;
+
+  --ds-color-text: #334155;
+  --ds-color-text-strong: #0f172a;
+  --ds-color-text-muted: #64748b;
+  --ds-color-danger: #dc2626;
+  --ds-color-warning: #d97706;
+  --ds-color-success: #059669;
+  --ds-color-info: #2563eb;
+
+  --ds-space-page-x: 1rem;
+  --ds-space-page-y: 2rem;
+  --ds-container-max: 80rem;
+
+  --ds-radius-sm: 0.375rem;
+  --ds-radius-md: 0.5rem;
+  --ds-radius-lg: 0.75rem;
+  --ds-radius-xl: 1rem;
+  --ds-radius-pill: 9999px;
+
+  --ds-shadow-card: 0 8px 24px rgb(15 23 42 / 0.08);
+  --ds-shadow-popover: 0 18px 48px rgb(15 23 42 / 0.18);
+
+  --primary-color: var(--ds-color-primary);
+  --accent-color: var(--ds-color-primary-hover);
+}
+
+@media (min-width: 640px) {
+  :root {
+    --ds-space-page-x: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --ds-space-page-x: 2rem;
+    --ds-space-page-y: 3rem;
+  }
+}

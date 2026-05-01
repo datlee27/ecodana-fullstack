@@ -6,21 +6,46 @@ import {
   handoverOwnerBooking,
   rejectOwnerBooking,
 } from '../../../api/ownerApi';
-import { EmptyState } from '../../../components/common/EmptyState';
 import { ErrorState } from '../../../components/common/ErrorState';
 import { LoadingState } from '../../../components/common/LoadingState';
+import { Badge, Button, ConfirmDialog, DataTable, EmptyState, Input, PageHeader } from '../../../design-system';
+import type { DataTableColumn } from '../../../design-system/components/DataTable';
 import { useNotification } from '../../../hooks/useNotification';
 import type { OwnerBooking } from '../../../types/owner';
 
 const bookingTabs = [
   { key: 'all', label: 'Tat ca', statuses: [] as string[] },
-  { key: 'pending', label: 'Pending', statuses: ['Pending'] },
-  { key: 'awaiting', label: 'Awaiting Deposit', statuses: ['AwaitingDeposit', 'Approved'] },
-  { key: 'confirmed', label: 'Confirmed', statuses: ['Confirmed'] },
-  { key: 'ongoing', label: 'Ongoing', statuses: ['Ongoing'] },
-  { key: 'completed', label: 'Completed', statuses: ['Completed'] },
-  { key: 'cancelled', label: 'Cancelled', statuses: ['Cancelled', 'Rejected', 'RefundPending', 'Refunded'] },
+  { key: 'pending', label: 'Cho duyet', statuses: ['Pending'] },
+  { key: 'awaiting', label: 'Cho coc', statuses: ['AwaitingDeposit', 'Approved'] },
+  { key: 'confirmed', label: 'Da xac nhan', statuses: ['Confirmed'] },
+  { key: 'ongoing', label: 'Dang thue', statuses: ['Ongoing'] },
+  { key: 'completed', label: 'Hoan tat', statuses: ['Completed'] },
+  { key: 'cancelled', label: 'Da huy', statuses: ['Cancelled', 'Rejected', 'RefundPending', 'Refunded'] },
 ];
+
+const formatCurrency = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)} d`;
+const formatDateTime = (value: string) => new Date(value).toLocaleString('vi-VN');
+
+const getBookingStatusTone = (status?: string) => {
+  switch (status) {
+    case 'Completed':
+    case 'Refunded':
+      return 'success' as const;
+    case 'Pending':
+    case 'AwaitingDeposit':
+    case 'RefundPending':
+      return 'warning' as const;
+    case 'Rejected':
+    case 'Cancelled':
+      return 'danger' as const;
+    case 'Approved':
+    case 'Confirmed':
+    case 'Ongoing':
+      return 'info' as const;
+    default:
+      return 'neutral' as const;
+  }
+};
 
 const OwnerBookingPage = () => {
   const { success, warning, error: notifyError } = useNotification();
@@ -159,270 +184,245 @@ const OwnerBookingPage = () => {
     return <ErrorState message={error} onRetry={() => void loadBookings()} />;
   }
 
+  const columns: Array<DataTableColumn<OwnerBooking>> = [
+    {
+      key: 'code',
+      header: 'Code',
+      render: (booking) => <span className="font-semibold text-text-strong">{booking.bookingCode}</span>,
+    },
+    {
+      key: 'customer',
+      header: 'Khach hang',
+      render: (booking) => booking.userFullName || 'Chua cap nhat',
+    },
+    {
+      key: 'vehicle',
+      header: 'Xe',
+      render: (booking) => (
+        <div className="space-y-1">
+          <div className="font-medium text-text-strong">{booking.vehicleModel || 'Chua cap nhat'}</div>
+          {booking.licensePlate ? <div className="text-xs text-text-muted">{booking.licensePlate}</div> : null}
+        </div>
+      ),
+    },
+    {
+      key: 'schedule',
+      header: 'Thoi gian',
+      render: (booking) => (
+        <div className="space-y-1 text-sm">
+          <div>{formatDateTime(booking.pickupDateTime)}</div>
+          <div className="text-text-muted">{formatDateTime(booking.returnDateTime)}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Tong tien',
+      align: 'right',
+      render: (booking) => (
+        <div className="space-y-1">
+          <div className="font-semibold text-text-strong">{formatCurrency(booking.totalAmount)}</div>
+          <div className="text-xs text-text-muted">Con lai: {formatCurrency(booking.remainingAmount)}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Trang thai',
+      render: (booking) => (
+        <Badge tone={getBookingStatusTone(booking.status)} size="md">
+          {booking.status}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Thao tac',
+      align: 'right',
+      headerClassName: 'w-[17rem]',
+      render: (booking) => (
+        <div className="flex justify-end gap-2">
+          {booking.status === 'Pending' ? (
+            <>
+              <Button type="button" size="sm" variant="outline" disabled={processingId === booking.bookingId} onClick={() => void onApprove(booking)}>
+                Duyet
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="danger"
+                disabled={processingId === booking.bookingId}
+                onClick={() => {
+                  setRejectTarget(booking);
+                  setRejectReason('');
+                }}
+              >
+                Tu choi
+              </Button>
+            </>
+          ) : null}
+
+          {booking.status === 'Confirmed' ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={processingId === booking.bookingId}
+              onClick={() => {
+                setHandoverTarget(booking);
+                setHandoverOdometer('0');
+                setHandoverNotes('');
+              }}
+            >
+              Giao xe
+            </Button>
+          ) : null}
+
+          {booking.status === 'Ongoing' ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
+              disabled={processingId === booking.bookingId}
+              onClick={() => {
+                setCompleteTarget(booking);
+                setCompleteNotes('');
+              }}
+            >
+              Hoan tat
+            </Button>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <>
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Booking Management</h1>
-            <p className="text-sm text-slate-600">Theo doi booking va xu ly cac buoc duyet, giao xe, hoan tat.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void loadBookings()}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            Refresh
-          </button>
-        </div>
+        <PageHeader
+          eyebrow="Owner portal"
+          title="Quan ly booking"
+          description="Theo doi booking theo tung trang thai va xu ly cac moc duyet, giao xe, hoan tat."
+          actions={
+            <Button type="button" variant="outline" onClick={() => void loadBookings()}>
+              Tai lai
+            </Button>
+          }
+        />
 
-        <div className="rounded-xl border border-slate-200 bg-white p-2">
+        <div className="rounded-xl border border-border bg-surface p-2">
           <div className="flex flex-wrap gap-2">
             {bookingTabs.map((tab) => (
-              <button
+              <Button
                 key={tab.key}
                 type="button"
+                size="sm"
+                variant={tab.key === activeTab ? 'primary' : 'ghost'}
                 onClick={() => setActiveTab(tab.key)}
-                className={`rounded-lg px-3 py-2 text-sm font-medium ${
-                  tab.key === activeTab ? 'bg-emerald-50 text-emerald-700' : 'text-slate-700 hover:bg-slate-100'
-                }`}
               >
                 {tab.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
         {filteredBookings.length === 0 ? (
-          <EmptyState message="Khong co booking nao trong nhom da chon." />
+          <EmptyState title="Khong co booking nao trong nhom nay" description="Thu chuyen sang tab khac hoac tai lai du lieu de kiem tra cap nhat moi." />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-left text-slate-600">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Code</th>
-                  <th className="px-4 py-3 font-semibold">Khach</th>
-                  <th className="px-4 py-3 font-semibold">Xe</th>
-                  <th className="px-4 py-3 font-semibold">Thoi gian</th>
-                  <th className="px-4 py-3 font-semibold">Tong tien</th>
-                  <th className="px-4 py-3 font-semibold">Trang thai</th>
-                  <th className="px-4 py-3 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredBookings.map((booking) => (
-                  <tr key={booking.bookingId}>
-                    <td className="px-4 py-3 text-slate-800">{booking.bookingCode}</td>
-                    <td className="px-4 py-3 text-slate-700">{booking.userFullName || 'N/A'}</td>
-                    <td className="px-4 py-3 text-slate-700">
-                      <div>{booking.vehicleModel || 'N/A'}</div>
-                      <div className="text-xs text-slate-500">{booking.licensePlate || ''}</div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      <div>{new Date(booking.pickupDateTime).toLocaleString('vi-VN')}</div>
-                      <div className="text-xs text-slate-500">{new Date(booking.returnDateTime).toLocaleString('vi-VN')}</div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      <div>{new Intl.NumberFormat('vi-VN').format(booking.totalAmount)} đ</div>
-                      <div className="text-xs text-slate-500">Con lai: {new Intl.NumberFormat('vi-VN').format(booking.remainingAmount)} đ</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{booking.status}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        {booking.status === 'Pending' ? (
-                          <>
-                            <button
-                              type="button"
-                              disabled={processingId === booking.bookingId}
-                              onClick={() => void onApprove(booking)}
-                              className="rounded-md border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              type="button"
-                              disabled={processingId === booking.bookingId}
-                              onClick={() => {
-                                setRejectTarget(booking);
-                                setRejectReason('');
-                              }}
-                              className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
-                            >
-                              Reject
-                            </button>
-                          </>
-                        ) : null}
-
-                        {booking.status === 'Confirmed' ? (
-                          <button
-                            type="button"
-                            disabled={processingId === booking.bookingId}
-                            onClick={() => {
-                              setHandoverTarget(booking);
-                              setHandoverOdometer('0');
-                              setHandoverNotes('');
-                            }}
-                            className="rounded-md border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-60"
-                          >
-                            Handover
-                          </button>
-                        ) : null}
-
-                        {booking.status === 'Ongoing' ? (
-                          <button
-                            type="button"
-                            disabled={processingId === booking.bookingId}
-                            onClick={() => {
-                              setCompleteTarget(booking);
-                              setCompleteNotes('');
-                            }}
-                            className="rounded-md border border-violet-300 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-60"
-                          >
-                            Complete
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable columns={columns} rows={filteredBookings} getRowKey={(booking) => booking.bookingId} />
         )}
       </section>
 
-      {rejectTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h3 className="text-lg font-semibold text-slate-900">Tu choi booking</h3>
-            </div>
-            <div className="space-y-3 px-5 py-4">
-              <p className="text-sm text-slate-700">Nhap ly do tu choi cho booking <span className="font-semibold">{rejectTarget.bookingCode}</span>.</p>
-              <textarea
-                value={rejectReason}
-                onChange={(event) => setRejectReason(event.target.value)}
-                rows={4}
-                placeholder="Ly do tu choi..."
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-3">
-              <button
-                type="button"
-                disabled={processingId === rejectTarget.bookingId}
-                onClick={() => setRejectTarget(null)}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
-              >
-                Huy
-              </button>
-              <button
-                type="button"
-                disabled={processingId === rejectTarget.bookingId}
-                onClick={() => void onSubmitReject()}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
-              >
-                {processingId === rejectTarget.bookingId ? 'Dang xu ly...' : 'Xac nhan tu choi'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <ConfirmDialog
+        open={Boolean(rejectTarget)}
+        title="Tu choi booking"
+        description={rejectTarget ? `Nhap ly do tu choi cho booking ${rejectTarget.bookingCode}.` : undefined}
+        confirmLabel="Xac nhan tu choi"
+        cancelLabel="Huy"
+        tone="danger"
+        busy={rejectTarget ? processingId === rejectTarget.bookingId : false}
+        onCancel={() => setRejectTarget(null)}
+        onConfirm={() => void onSubmitReject()}
+      >
+        <label htmlFor="reject-reason" className="mb-1.5 block text-sm font-medium text-text-strong">
+          Ly do tu choi
+        </label>
+        <textarea
+          id="reject-reason"
+          value={rejectReason}
+          onChange={(event) => setRejectReason(event.target.value)}
+          rows={4}
+          placeholder="Nhap ly do tu choi..."
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-strong shadow-sm transition-colors placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+        />
+      </ConfirmDialog>
 
-      {handoverTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h3 className="text-lg font-semibold text-slate-900">Giao xe</h3>
-            </div>
-            <div className="space-y-3 px-5 py-4">
-              <p className="text-sm text-slate-700">Nhap thong tin giao xe cho booking <span className="font-semibold">{handoverTarget.bookingCode}</span>.</p>
-              <label className="block text-sm text-slate-700">
-                <span className="mb-1 block font-medium">Odometer *</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={handoverOdometer}
-                  onChange={(event) => setHandoverOdometer(event.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </label>
-              <label className="block text-sm text-slate-700">
-                <span className="mb-1 block font-medium">Ghi chu (tu chon)</span>
-                <textarea
-                  value={handoverNotes}
-                  onChange={(event) => setHandoverNotes(event.target.value)}
-                  rows={3}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </label>
-            </div>
-            <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-3">
-              <button
-                type="button"
-                disabled={processingId === handoverTarget.bookingId}
-                onClick={() => setHandoverTarget(null)}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
-              >
-                Huy
-              </button>
-              <button
-                type="button"
-                disabled={processingId === handoverTarget.bookingId}
-                onClick={() => void onSubmitHandover()}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-              >
-                {processingId === handoverTarget.bookingId ? 'Dang xu ly...' : 'Xac nhan giao xe'}
-              </button>
-            </div>
+      <ConfirmDialog
+        open={Boolean(handoverTarget)}
+        title="Giao xe"
+        description={handoverTarget ? `Cap nhat thong tin giao xe cho booking ${handoverTarget.bookingCode}.` : undefined}
+        confirmLabel="Xac nhan giao xe"
+        cancelLabel="Huy"
+        tone="primary"
+        busy={handoverTarget ? processingId === handoverTarget.bookingId : false}
+        size="lg"
+        onCancel={() => setHandoverTarget(null)}
+        onConfirm={() => void onSubmitHandover()}
+      >
+        <div className="space-y-4">
+          <Input
+            label="Odometer *"
+            type="number"
+            min={0}
+            value={handoverOdometer}
+            onChange={(event) => setHandoverOdometer(event.target.value)}
+          />
+          <div>
+            <label htmlFor="handover-notes" className="mb-1.5 block text-sm font-medium text-text-strong">
+              Ghi chu (tuy chon)
+            </label>
+            <textarea
+              id="handover-notes"
+              value={handoverNotes}
+              onChange={(event) => setHandoverNotes(event.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-strong shadow-sm transition-colors placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
           </div>
         </div>
-      ) : null}
+      </ConfirmDialog>
 
-      {completeTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h3 className="text-lg font-semibold text-slate-900">Hoan tat chuyen di</h3>
-            </div>
-            <div className="space-y-3 px-5 py-4">
-              <p className="text-sm text-slate-700">Cap nhat thong tin hoan tat cho booking <span className="font-semibold">{completeTarget.bookingCode}</span>.</p>
-              <label className="block text-sm text-slate-700">
-                <span className="mb-1 block font-medium">Ghi chu (tu chon)</span>
-                <textarea
-                  value={completeNotes}
-                  onChange={(event) => setCompleteNotes(event.target.value)}
-                  rows={3}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </label>
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                Sau khi hoan tat, xe se duoc dat ve trang thai Maintenance de chu xe kiem tra/sac pin.
-              </p>
-            </div>
-            <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-3">
-              <button
-                type="button"
-                disabled={processingId === completeTarget.bookingId}
-                onClick={() => setCompleteTarget(null)}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
-              >
-                Huy
-              </button>
-              <button
-                type="button"
-                disabled={processingId === completeTarget.bookingId}
-                onClick={() => void onSubmitComplete()}
-                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
-              >
-                {processingId === completeTarget.bookingId ? 'Dang xu ly...' : 'Xac nhan hoan tat'}
-              </button>
-            </div>
+      <ConfirmDialog
+        open={Boolean(completeTarget)}
+        title="Hoan tat chuyen di"
+        description={completeTarget ? `Cap nhat thong tin hoan tat cho booking ${completeTarget.bookingCode}.` : undefined}
+        confirmLabel="Xac nhan hoan tat"
+        cancelLabel="Huy"
+        tone="primary"
+        busy={completeTarget ? processingId === completeTarget.bookingId : false}
+        size="lg"
+        onCancel={() => setCompleteTarget(null)}
+        onConfirm={() => void onSubmitComplete()}
+      >
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="complete-notes" className="mb-1.5 block text-sm font-medium text-text-strong">
+              Ghi chu (tuy chon)
+            </label>
+            <textarea
+              id="complete-notes"
+              value={completeNotes}
+              onChange={(event) => setCompleteNotes(event.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-strong shadow-sm transition-colors placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Sau khi hoan tat, xe se duoc dua ve trang thai Maintenance de chu xe kiem tra va sac pin.
           </div>
         </div>
-      ) : null}
+      </ConfirmDialog>
     </>
   );
 };

@@ -563,4 +563,102 @@ public class UserService {
     public boolean existsByEmail(String email) {
         return userRepository.existsByEmail(email);
     }
+
+    @Transactional
+    public com.ecodana.evodanavn1.dto.UserResponse createAdminUser(com.ecodana.evodanavn1.dto.UserRequest req) {
+        if (userRepository.existsByUsername(req.getUsername())) {
+            throw new IllegalArgumentException("Username already exists");
+        }
+        if (userRepository.existsByEmail(req.getEmail())) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+        if (!roleService.isValidRoleId(req.getRoleId())) {
+            throw new IllegalArgumentException("Invalid role ID: " + req.getRoleId());
+        }
+        if (req.getPassword() == null || req.getPassword().isBlank()) {
+            throw new IllegalArgumentException("Password is required");
+        }
+
+        User user = new User();
+        user.setId(java.util.UUID.randomUUID().toString());
+        user.setUsername(req.getUsername());
+        user.setFirstName(req.getFirstName());
+        user.setLastName(req.getLastName());
+        user.setUserDOB(req.getUserDOB());
+        user.setPhoneNumber(req.getPhoneNumber());
+        user.setAvatarUrl(req.getAvatarUrl());
+        user.setEmail(req.getEmail());
+        user.setRoleId(req.getRoleId());
+        user.setStatus(User.UserStatus.valueOf(req.getStatus()));
+        user.setEmailVerifed(Boolean.TRUE.equals(req.getEmailVerified()));
+        user.setTwoFactorEnabled(Boolean.TRUE.equals(req.getTwoFactorEnabled()));
+        user.setLockoutEnabled(Boolean.TRUE.equals(req.getLockoutEnabled()));
+        user.setAccessFailedCount(0);
+        user.setCreatedDate(java.time.LocalDateTime.now());
+        user.setNormalizedUserName(req.getUsername().toUpperCase());
+        user.setNormalizedEmail(req.getEmail().toUpperCase());
+        user.setSecurityStamp(java.util.UUID.randomUUID().toString());
+        user.setConcurrencyStamp(java.util.UUID.randomUUID().toString());
+        if (req.getGender() != null) user.setGender(User.Gender.valueOf(req.getGender()));
+        user.setPassword(passwordEncoder.encode(req.getPassword()));
+
+        User saved = userRepository.save(user);
+        return new com.ecodana.evodanavn1.dto.UserResponse(userRepository.findById(saved.getId()).orElse(saved));
+    }
+
+    @Transactional
+    public com.ecodana.evodanavn1.dto.UserResponse updateAdminUser(String id, com.ecodana.evodanavn1.dto.UserRequest req) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new java.util.NoSuchElementException("User not found: " + id));
+
+        if (!user.getUsername().equals(req.getUsername()) && userRepository.existsByUsername(req.getUsername())) {
+            throw new IllegalArgumentException("Username already exists");
+        }
+        if (!user.getEmail().equals(req.getEmail()) && userRepository.existsByEmail(req.getEmail())) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+        if (!roleService.isValidRoleId(req.getRoleId())) {
+            throw new IllegalArgumentException("Invalid role ID: " + req.getRoleId());
+        }
+
+        boolean roleChangedToOwner = !user.getRoleId().equals(req.getRoleId())
+                && roleRepository.findById(req.getRoleId())
+                        .map(r -> "Owner".equalsIgnoreCase(r.getRoleName()))
+                        .orElse(false);
+
+        user.setUsername(req.getUsername());
+        user.setFirstName(req.getFirstName());
+        user.setLastName(req.getLastName());
+        user.setUserDOB(req.getUserDOB());
+        user.setPhoneNumber(req.getPhoneNumber());
+        user.setAvatarUrl(req.getAvatarUrl());
+        user.setEmail(req.getEmail());
+        user.setRoleId(req.getRoleId());
+        user.setStatus(User.UserStatus.valueOf(req.getStatus()));
+        user.setNormalizedUserName(req.getUsername().toUpperCase());
+        user.setNormalizedEmail(req.getEmail().toUpperCase());
+        if (req.getGender() != null) user.setGender(User.Gender.valueOf(req.getGender()));
+        if (req.getEmailVerified() != null) user.setEmailVerifed(req.getEmailVerified());
+        if (req.getTwoFactorEnabled() != null) user.setTwoFactorEnabled(req.getTwoFactorEnabled());
+        if (req.getLockoutEnabled() != null) user.setLockoutEnabled(req.getLockoutEnabled());
+        if (req.getPassword() != null && !req.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(req.getPassword()));
+        }
+
+        User saved = userRepository.save(user);
+
+        if (roleChangedToOwner && saved.getEmail() != null) {
+            String name = saved.getFirstName() != null
+                    ? saved.getFirstName() + " " + saved.getLastName()
+                    : saved.getUsername();
+            try {
+                emailService.sendOwnerApprovalNotification(saved.getEmail(), name);
+            } catch (Exception e) {
+                logger.warn("Failed to send owner approval email to {}: {}", saved.getEmail(), e.getMessage());
+            }
+        }
+
+        return new com.ecodana.evodanavn1.dto.UserResponse(userRepository.findById(saved.getId()).orElse(saved));
+    }
 }
+

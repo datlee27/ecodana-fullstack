@@ -43,10 +43,22 @@ Frontend mặc định chạy tại `http://localhost:5173`.
 
 ## Environment
 
-### Frontend (`ecodana-fe/.env`)
+### Frontend (`client/.env.local`)
 
 ```bash
-VITE_API_BASE_URL=http://localhost:8080
+# Local backend
+VITE_DEV_API_PROXY_TARGET=http://localhost:8080
+
+# Remote backend while running Vite locally
+VITE_DEV_API_PROXY_TARGET=https://your-backend-domain.com
+```
+
+Trong dev, frontend gọi `/api/v1/*` qua Vite proxy. Nếu đặt backend remote ở `VITE_DEV_API_PROXY_TARGET`, trình duyệt vẫn gọi cùng origin frontend nên tránh lỗi CORS local.
+
+Khi build/deploy frontend tĩnh, dùng:
+
+```bash
+VITE_API_BASE_URL=https://your-backend-domain.com
 ```
 
 ### Backend CORS

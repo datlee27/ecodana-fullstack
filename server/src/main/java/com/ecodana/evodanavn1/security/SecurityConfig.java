@@ -73,6 +73,8 @@ public class SecurityConfig {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService());
         authProvider.setPasswordEncoder(passwordEncoder);
+        // Allow DisabledException to propagate instead of being masked as BadCredentialsException
+        authProvider.setHideUserNotFoundExceptions(false);
         return authProvider;
     }
 
@@ -98,6 +100,9 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/chatbot/**", "/api/discounts/validate").permitAll()
+                        .requestMatchers("/admin/api/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/users/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/vehicles/**").hasRole("ADMIN")
                         .requestMatchers("/api/**").authenticated()
                         // Legacy web đã tắt, chỉ cho phép các luồng API/OAuth rõ ràng.
                         .anyRequest().denyAll())

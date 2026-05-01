@@ -22,6 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -45,9 +48,26 @@ public class AuthApiController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         String usernameOrEmail = request.getUsernameOrEmail().trim();
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(usernameOrEmail, request.getPassword())
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(usernameOrEmail, request.getPassword())
+            );
+        } catch (DisabledException ex) {
+            // Trường hợp spring ném thẳng DisabledException
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error(ex.getMessage(), null));
+        } catch (InternalAuthenticationServiceException ex) {
+            // Spring bọc DisabledException và UsernameNotFoundException trong exception này
+            if (ex.getCause() instanceof DisabledException) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error(ex.getCause().getMessage(), null));
+            }
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Email hoặc mật khẩu không đúng. Vui lòng thử lại.", null));
+        } catch (BadCredentialsException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Email hoặc mật khẩu không đúng. Vui lòng thử lại.", null));
+        }
 
         User user = userService.getUserWithRole(usernameOrEmail);
         if (user == null) {

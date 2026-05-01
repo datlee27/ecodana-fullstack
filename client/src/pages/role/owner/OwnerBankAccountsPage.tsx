@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getOwnerBankAccounts } from '../../../api/ownerApi';
-import { EmptyState } from '../../../components/common/EmptyState';
 import { ErrorState } from '../../../components/common/ErrorState';
 import { LoadingState } from '../../../components/common/LoadingState';
+import { Badge, EmptyState, PageHeader } from '../../../design-system';
 import type { OwnerBankAccountItem } from '../../../types/owner';
 
 const OwnerBankAccountsPage = () => {
@@ -36,39 +36,44 @@ const OwnerBankAccountsPage = () => {
   }
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Bank Accounts</h1>
-        <p className="text-sm text-slate-600">Danh sach tai khoan ngan hang de nhan doanh thu.</p>
-      </div>
+    <section className="space-y-6">
+      <PageHeader
+        eyebrow="Owner portal"
+        title="Tai khoan ngan hang"
+        description="Danh sach tai khoan dung de nhan doanh thu va doi soat thanh toan."
+      />
 
       {accounts.length === 0 ? (
-        <EmptyState message="Chua co tai khoan ngan hang nao." />
+        <EmptyState title="Chua co tai khoan ngan hang" description="Khi owner them tai khoan nhan tien, thong tin se hien thi tai day." />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           {accounts.map((account) => (
-            <article key={account.bankAccountId} className="rounded-xl border border-slate-200 bg-white p-4">
+            <article key={account.bankAccountId} className="rounded-xl border border-border bg-surface p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-slate-900">{account.bankName}</p>
-                  <p className="text-sm text-slate-600">{account.accountHolderName}</p>
+                  <p className="font-semibold text-text-strong">{account.bankName}</p>
+                  <p className="text-sm text-text-muted">{account.accountHolderName}</p>
                 </div>
                 {account.isDefault ? (
-                  <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">Default</span>
+                  <Badge tone="success" size="md">Mac dinh</Badge>
                 ) : null}
               </div>
-              <p className="mt-3 text-sm text-slate-700">Account: {account.accountNumber}</p>
-              <p className="text-sm text-slate-500">Bank code: {account.bankCode || 'N/A'}</p>
+              <div className="mt-4 space-y-2 text-sm">
+                <p className="text-text-base">So tai khoan: {account.accountNumber}</p>
+                <p className="text-text-muted">Ma ngan hang: {account.bankCode || 'Chua cap nhat'}</p>
+              </div>
               {account.qrCodeImagePath ? (
                 <a
                   href={account.qrCodeImagePath}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-3 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                  className="mt-4 inline-flex text-sm font-semibold text-primary hover:text-primary-hover"
                 >
-                  View QR
+                  Xem QR nhan tien
                 </a>
-              ) : null}
+              ) : (
+                <p className="mt-4 text-sm text-text-muted">Chua co QR nhan tien.</p>
+              )}
             </article>
           ))}
         </div>

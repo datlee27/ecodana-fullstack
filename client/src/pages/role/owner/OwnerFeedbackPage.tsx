@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { getOwnerFeedback } from '../../../api/ownerApi';
-import { EmptyState } from '../../../components/common/EmptyState';
 import { ErrorState } from '../../../components/common/ErrorState';
 import { LoadingState } from '../../../components/common/LoadingState';
+import { Badge, EmptyState, PageHeader } from '../../../design-system';
 import type { OwnerFeedbackItem } from '../../../types/owner';
+
+const formatDate = (value?: string) => (value ? new Date(value).toLocaleDateString('vi-VN') : 'Chua cap nhat');
 
 const OwnerFeedbackPage = () => {
   const [feedback, setFeedback] = useState<OwnerFeedbackItem[]>([]);
@@ -36,37 +38,41 @@ const OwnerFeedbackPage = () => {
   }
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Feedback Management</h1>
-        <p className="text-sm text-slate-600">Xem danh gia cua khach hang cho xe cua ban.</p>
-      </div>
+    <section className="space-y-6">
+      <PageHeader
+        eyebrow="Owner portal"
+        title="Danh gia tu khach hang"
+        description="Theo doi rating, nhan xet va cac phan hoi lien quan den xe cua ban."
+      />
 
       {feedback.length === 0 ? (
-        <EmptyState message="Chua co feedback nao." />
+        <EmptyState title="Chua co feedback nao" description="Danh gia cua khach hang se xuat hien tai day sau khi hoan tat chuyen di." />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {feedback.map((item) => (
-            <article key={item.feedbackId} className="rounded-xl border border-slate-200 bg-white p-4">
+            <article key={item.feedbackId} className="rounded-xl border border-border bg-surface p-5 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">{item.vehicleModel || 'Vehicle'}</p>
-                  <p className="text-xs text-slate-500">
-                    {item.userFullName || 'Customer'} - {item.bookingCode || 'N/A'}
+                  <p className="text-base font-semibold text-text-strong">{item.vehicleModel || 'Chua cap nhat'}</p>
+                  <p className="text-xs text-text-muted">
+                    {item.userFullName || 'Khach hang'} · {item.bookingCode || 'Chua cap nhat'} · {formatDate(item.createdDate)}
                   </p>
                 </div>
-                <div className="text-sm font-semibold text-amber-600">
-                  <i className="fas fa-star mr-1" />
+                <Badge tone={item.rating >= 4 ? 'success' : item.rating >= 3 ? 'warning' : 'danger'} size="md">
                   {item.rating}/5
-                </div>
+                </Badge>
               </div>
-              <p className="mt-3 text-sm text-slate-700">{item.content || 'Khong co noi dung.'}</p>
+              <p className="mt-3 text-sm leading-6 text-text-base">{item.content || 'Khong co noi dung.'}</p>
               {item.staffReply ? (
-                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-                  <p className="font-semibold">Owner reply</p>
+                <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                  <p className="font-semibold">Phan hoi da gui</p>
                   <p>{item.staffReply}</p>
                 </div>
-              ) : null}
+              ) : (
+                <div className="mt-4 rounded-lg border border-dashed border-border bg-muted px-3 py-2 text-sm text-text-muted">
+                  Chua co phan hoi bo sung cho danh gia nay.
+                </div>
+              )}
             </article>
           ))}
         </div>

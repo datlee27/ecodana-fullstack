@@ -2,6 +2,8 @@ package com.ecodana.evodanavn1.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
@@ -19,6 +21,8 @@ import java.util.regex.Pattern;
 
 @Service
 public class OCRService {
+
+    private static final Logger logger = LoggerFactory.getLogger(OCRService.class);
 
     @Value("${ocr.space.api.key:}")
     private String ocrSpaceApiKey;
@@ -273,9 +277,8 @@ public class OCRService {
                     if (parsedResults.has("ParsedText")) {
                         String extractedText = parsedResults.get("ParsedText").asText();
                         
-                        System.out.println("=== OCR Extracted Text ===");
-                        System.out.println(extractedText);
-                        System.out.println("=== End OCR Text ===");
+                        logger.debug("[OCR] Extracted text length={}, text={}", extractedText.length(),
+                                extractedText.substring(0, Math.min(200, extractedText.length())) + (extractedText.length() > 200 ? "..." : ""));
                         
                         return extractedText;
                     }
