@@ -4,6 +4,8 @@ import com.ecodana.evodanavn1.model.*;
 import com.ecodana.evodanavn1.repository.RefundRequestRepository;
 import com.ecodana.evodanavn1.repository.PaymentRepository;
 import com.ecodana.evodanavn1.repository.BookingRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,9 +16,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class RefundRequestService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RefundRequestService.class);
 
     @Autowired
     private RefundRequestRepository refundRequestRepository;
@@ -106,10 +111,9 @@ public class RefundRequestService {
     private BigDecimal calculateRefundAmount(Booking booking) {
         // Get all payments
         List<Payment> payments = paymentRepository.findByBookingId(booking.getBookingId());
-        System.out.println("DEBUG: Total payments found: " + payments.size());
-        for (Payment p : payments) {
-            System.out.println("  - Payment: " + p.getPaymentId() + ", Type: " + p.getPaymentType() + ", Status: " + p.getPaymentStatus() + ", Amount: " + p.getAmount());
-        }
+        logger.debug("[REFUND-REQ] Booking={}, TotalPayments={}, Payments={}",
+                booking.getBookingId(), payments.size(),
+                payments.stream().map(p -> p.getPaymentId() + ":" + p.getPaymentStatus()).collect(Collectors.joining(", ")));
         
         // ONLY refund payments that are actually COMPLETED (đã thanh toán thực sự)
         // Do NOT include Pending payments - they haven't been paid yet!
@@ -119,10 +123,9 @@ public class RefundRequestService {
                             p.getPaymentType() == Payment.PaymentType.FinalPayment)
                 .toList();
         
-        System.out.println("DEBUG: Refundable payments (COMPLETED only) found: " + refundablePayments.size());
-        for (Payment p : refundablePayments) {
-            System.out.println("  - Refundable: " + p.getPaymentId() + ", Type: " + p.getPaymentType() + ", Status: " + p.getPaymentStatus() + ", Amount: " + p.getAmount());
-        }
+        logger.debug("[REFUND-REQ] RefundablePayments={}, Details={}",
+                refundablePayments.size(),
+                refundablePayments.stream().map(p -> p.getPaymentId() + ":" + p.getAmount()).collect(Collectors.joining(", ")));
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime paymentTime = booking.getPaymentConfirmedAt();
@@ -132,12 +135,12 @@ public class RefundRequestService {
             BigDecimal fallbackAmount = refundablePayments.stream()
                     .map(Payment::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            System.out.println("DEBUG: paymentTime is null, using fallback amount: " + fallbackAmount);
+            logger.debug("[REFUND-REQ] paymentTime is null, fallbackAmount={}", fallbackAmount);
             return fallbackAmount;
         }
 
         long hoursSincePayment = Duration.between(paymentTime, now).toHours();
-        System.out.println("DEBUG: Hours since payment: " + hoursSincePayment);
+        logger.debug("[REFUND-REQ] Hours since payment: {}", hoursSincePayment);
 
         BigDecimal totalRefundAmount = BigDecimal.ZERO;
 
@@ -155,10 +158,10 @@ public class RefundRequestService {
             }
 
             totalRefundAmount = totalRefundAmount.add(paymentRefundAmount);
-            System.out.println("DEBUG: Payment " + payment.getPaymentId() + " refund: " + paymentRefundAmount);
+            logger.debug("[REFUND-REQ] Payment={}, refundAmount={}", payment.getPaymentId(), paymentRefundAmount);
         }
 
-        System.out.println("DEBUG: Total refund amount: " + totalRefundAmount);
+        logger.debug("[REFUND-REQ] Total refund amount: {}", totalRefundAmount);
         return totalRefundAmount.max(BigDecimal.ZERO);
     }
 
@@ -338,4 +341,62 @@ public class RefundRequestService {
             "REFUND_REJECTED"
         );
     }
+
+    @Transactional
+    public int syncPaymentRefunds() {
+        int count = 0;
+        for (Payment payment : paymentRepository.findByPaymentStatus(Payment.PaymentStatus.Refunded)) {
+            Booking booking = payment.getBooking();
+            if (booking == null) continue;
+            if (refundRequestRepository.findByBookingBookingId(booking.getBookingId()).isPresent()) continue;
+            try {
+                RefundRequest rr = new RefundRequest();
+                rr.setRefundRequestId(UUID.randomUUID().toString());
+                rr.setBooking(booking);
+                rr.setUser(booking.getUser());
+                rr.setRefundAmount(payment.getAmount().abs());
+                rr.setCancelReason(payment.getNotes() != null ? payment.getNotes() : "Refund from payment");
+                rr.setStatus(RefundRequest.RefundStatus.Pending);
+                rr.setWithinTwoHours(false);
+                bankAccountService.getDefaultBankAccount(booking.getUser().getId())
+                        .ifPresent(rr::setBankAccount);
+                refundRequestRepository.save(rr);
+                if (booking.getStatus() != Booking.BookingStatus.RefundPending
+                        && booking.getStatus() != Booking.BookingStatus.Cancelled) {
+                    booking.setStatus(Booking.BookingStatus.RefundPending);
+                    bookingRepository.save(booking);
+                }
+                count++;
+            } catch (Exception e) {
+                logger.warn("syncPaymentRefunds: skipped payment {}: {}", payment.getPaymentId(), e.getMessage());
+            }
+        }
+        return count;
+    }
+
+    @Transactional
+    public int syncPendingBookings() {
+        int count = 0;
+        for (Booking booking : bookingRepository.findByStatus(Booking.BookingStatus.RefundPending)) {
+            if (refundRequestRepository.findByBookingBookingId(booking.getBookingId()).isPresent()) continue;
+            try {
+                RefundRequest rr = new RefundRequest();
+                rr.setRefundRequestId(UUID.randomUUID().toString());
+                rr.setBooking(booking);
+                rr.setUser(booking.getUser());
+                rr.setRefundAmount(java.math.BigDecimal.ZERO);
+                rr.setCancelReason(booking.getCancelReason() != null ? booking.getCancelReason() : "Customer cancelled");
+                rr.setStatus(RefundRequest.RefundStatus.Pending);
+                rr.setWithinTwoHours(false);
+                bankAccountService.getDefaultBankAccount(booking.getUser().getId())
+                        .ifPresent(rr::setBankAccount);
+                refundRequestRepository.save(rr);
+                count++;
+            } catch (Exception e) {
+                logger.warn("syncPendingBookings: skipped booking {}: {}", booking.getBookingId(), e.getMessage());
+            }
+        }
+        return count;
+    }
 }
+

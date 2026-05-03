@@ -34,11 +34,19 @@ src/
 npm install
 ```
 
-2. Cấu hình biến môi trường (`.env`):
+2. Cấu hình biến môi trường (`.env.local`):
 
 ```bash
-VITE_API_BASE_URL=http://localhost:8080
+VITE_DEV_API_PROXY_TARGET=http://localhost:8080
 ```
+
+Nếu backend đang chạy ở domain khác khi dev local:
+
+```bash
+VITE_DEV_API_PROXY_TARGET=https://your-backend-url.com
+```
+
+Dev server sẽ proxy `/api/v1/*` sang backend này. Không cần set `VITE_API_BASE_URL` khi chạy local trừ khi bạn muốn trình duyệt gọi trực tiếp backend.
 
 3. Chạy dev server:
 

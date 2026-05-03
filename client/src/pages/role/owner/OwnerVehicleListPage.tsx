@@ -1,13 +1,32 @@
 import { useEffect, useState } from 'react';
 import { deleteOwnerVehicle, getOwnerApiErrorMessage, getOwnerMeta, getOwnerVehicles, updateOwnerVehicleStatus } from '../../../api/ownerApi';
-import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
-import { EmptyState } from '../../../components/common/EmptyState';
 import { ErrorState } from '../../../components/common/ErrorState';
 import { LoadingState } from '../../../components/common/LoadingState';
+import { Badge, Button, ConfirmDialog, DataTable, EmptyState, PageHeader } from '../../../design-system';
+import type { DataTableColumn } from '../../../design-system/components/DataTable';
 import { AddVehicleModal } from '../../../features/vehicle/AddVehicleModal';
 import { EditVehicleModal } from '../../../features/vehicle/EditVehicleModal';
 import { useNotification } from '../../../hooks/useNotification';
 import type { OwnerVehicle, OwnerVehicleMeta } from '../../../types/owner';
+
+const formatCurrency = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)} d`;
+
+const getVehicleStatusTone = (status?: string) => {
+  switch (status?.toUpperCase()) {
+    case 'AVAILABLE':
+      return 'success' as const;
+    case 'UNAVAILABLE':
+      return 'warning' as const;
+    case 'MAINTENANCE':
+      return 'info' as const;
+    case 'PENDINGAPPROVAL':
+      return 'warning' as const;
+    case 'REJECTED':
+      return 'danger' as const;
+    default:
+      return 'neutral' as const;
+  }
+};
 
 const OwnerVehicleListPage = () => {
   const { success, error: notifyError } = useNotification();
@@ -83,91 +102,119 @@ const OwnerVehicleListPage = () => {
     return <ErrorState message={error} onRetry={() => void loadData()} />;
   }
 
+  const columns: Array<DataTableColumn<OwnerVehicle>> = [
+    {
+      key: 'model',
+      header: 'Model',
+      render: (vehicle) => <span className="font-semibold text-text-strong">{vehicle.vehicleModel}</span>,
+    },
+    {
+      key: 'license',
+      header: 'Bien so',
+      render: (vehicle) => vehicle.licensePlate || 'Chua cap nhat',
+    },
+    {
+      key: 'type',
+      header: 'Loai xe',
+      render: (vehicle) => vehicle.vehicleType,
+    },
+    {
+      key: 'price',
+      header: 'Gia/ngay',
+      align: 'right',
+      render: (vehicle) => <span className="font-semibold text-text-strong">{formatCurrency(vehicle.dailyPrice)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Trang thai',
+      render: (vehicle) => (
+        <Badge tone={getVehicleStatusTone(vehicle.status)} size="md">
+          {vehicle.status}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Thao tac',
+      align: 'right',
+      headerClassName: 'w-[18rem]',
+      render: (vehicle) => (
+        <div className="flex justify-end gap-2">
+          <EditVehicleModal
+            vehicle={vehicle}
+            meta={meta}
+            onSaved={(updatedVehicle) => {
+              setVehicles((prev) => prev.map((item) => (item.vehicleId === updatedVehicle.vehicleId ? updatedVehicle : item)));
+            }}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={processingId === vehicle.vehicleId}
+            onClick={() => void onToggleAvailability(vehicle)}
+          >
+            {vehicle.status === 'Available' ? 'Tam dung' : 'Mo lai'}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="danger"
+            disabled={processingId === vehicle.vehicleId}
+            onClick={() => setDeleteTarget(vehicle)}
+          >
+            Xoa
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Car Management</h1>
-          <p className="text-sm text-slate-600">Quan ly danh sach xe, cap nhat thong tin va trang thai.</p>
-        </div>
-        <AddVehicleModal
-          meta={meta}
-          onCreated={(vehicle) => {
-            setVehicles((prev) => [vehicle, ...prev]);
-          }}
-        />
-      </div>
+      <PageHeader
+        eyebrow="Owner portal"
+        title="Quan ly xe"
+        description="Danh sach xe, gia cho thue va trang thai san sang trong owner portal."
+        actions={
+          <AddVehicleModal
+            meta={meta}
+            onCreated={(vehicle) => {
+              setVehicles((prev) => [vehicle, ...prev]);
+            }}
+          />
+        }
+      />
 
       {vehicles.length === 0 ? (
-        <EmptyState message="Ban chua co xe nao. Hay them xe dau tien." />
+        <EmptyState
+          title="Ban chua co xe nao"
+          description="Hay them xe dau tien de bat dau nhan booking tu khach thue."
+          action={
+            <AddVehicleModal
+              meta={meta}
+              onCreated={(vehicle) => {
+                setVehicles((prev) => [vehicle, ...prev]);
+              }}
+            />
+          }
+        />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-slate-600">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Model</th>
-                <th className="px-4 py-3 font-semibold">License</th>
-                <th className="px-4 py-3 font-semibold">Type</th>
-                <th className="px-4 py-3 font-semibold">Price/Day</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {vehicles.map((vehicle) => (
-                <tr key={vehicle.vehicleId}>
-                  <td className="px-4 py-3 text-slate-800">{vehicle.vehicleModel}</td>
-                  <td className="px-4 py-3 text-slate-700">{vehicle.licensePlate || 'N/A'}</td>
-                  <td className="px-4 py-3 text-slate-700">{vehicle.vehicleType}</td>
-                  <td className="px-4 py-3 text-slate-700">{new Intl.NumberFormat('vi-VN').format(vehicle.dailyPrice)} đ</td>
-                  <td className="px-4 py-3">
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
-                      {vehicle.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <EditVehicleModal
-                        vehicle={vehicle}
-                        meta={meta}
-                        onSaved={(updatedVehicle) => {
-                          setVehicles((prev) =>
-                            prev.map((item) => (item.vehicleId === updatedVehicle.vehicleId ? updatedVehicle : item)),
-                          );
-                        }}
-                      />
-                      <button
-                        type="button"
-                        disabled={processingId === vehicle.vehicleId}
-                        onClick={() => void onToggleAvailability(vehicle)}
-                        className="rounded-md border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {vehicle.status === 'Available' ? 'Set Unavailable' : 'Set Available'}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={processingId === vehicle.vehicleId}
-                        onClick={() => setDeleteTarget(vehicle)}
-                        className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          rows={vehicles}
+          getRowKey={(vehicle) => vehicle.vehicleId}
+          emptyState={<EmptyState title="Ban chua co xe nao" description="Hay them xe dau tien de bat dau nhan booking tu khach thue." />}
+        />
       )}
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Xoa xe"
-        message={
+        description={
           deleteTarget
-            ? `Ban co chac chan muon xoa xe ${deleteTarget.vehicleModel} (${deleteTarget.licensePlate || 'N/A'})?`
-            : ''
+            ? `Hanh dong nay se go xe ${deleteTarget.vehicleModel} (${deleteTarget.licensePlate || 'Chua cap nhat'}) khoi danh sach cua ban.`
+            : undefined
         }
         confirmLabel="Xoa xe"
         cancelLabel="Huy"
@@ -175,7 +222,11 @@ const OwnerVehicleListPage = () => {
         busy={deleteTarget ? processingId === deleteTarget.vehicleId : false}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => void onDelete()}
-      />
+      >
+        <p className="text-sm leading-6 text-text-base">
+          Ban van co the them lai xe sau nay, nhung trang thai hien tai va cac thay doi chua luu se khong duoc giu lai.
+        </p>
+      </ConfirmDialog>
     </section>
   );
 };

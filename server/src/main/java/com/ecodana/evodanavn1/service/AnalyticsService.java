@@ -31,37 +31,69 @@ public class AnalyticsService {
      */
     public Map<String, Object> getDashboardAnalytics() {
         Map<String, Object> analytics = new HashMap<>();
-        
+
         // Basic counts
         List<User> allUsers = userService.getAllUsers();
         List<Vehicle> allVehicles = vehicleService.getAllVehicles();
         List<Booking> allBookings = bookingService.getAllBookings();
-        
+
         analytics.put("totalUsers", allUsers.size());
         analytics.put("totalVehicles", allVehicles.size());
         analytics.put("totalBookings", allBookings.size());
         analytics.put("totalRevenue", bookingService.getTotalRevenue());
-        
+
         // Revenue analytics
         Map<String, Object> revenueAnalytics = bookingService.getRevenueAnalytics();
         analytics.putAll(revenueAnalytics);
-        
-        // User statistics
 
-        
+        // ── KPI fields the React dashboard expects ──────────────────────────
+        // activeVehicles: xe đang được thuê (Rented)
+        long activeVehicles = allVehicles.stream()
+            .filter(v -> v.getStatus() == Vehicle.VehicleStatus.Rented)
+            .count();
+        analytics.put("activeVehicles", activeVehicles);
+
+        // newUsersToday: users đăng ký trong ngày hôm nay
+        LocalDate today = LocalDate.now();
+        long newUsersToday = allUsers.stream()
+            .filter(u -> u.getCreatedDate() != null &&
+                         u.getCreatedDate().toLocalDate().isEqual(today))
+            .count();
+        analytics.put("newUsersToday", newUsersToday);
+
+        // bookingsToday: đơn tạo trong ngày hôm nay
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay   = today.atTime(23, 59, 59);
+        long bookingsToday = allBookings.stream()
+            .filter(b -> b.getCreatedDate() != null &&
+                         !b.getCreatedDate().isBefore(startOfDay) &&
+                         !b.getCreatedDate().isAfter(endOfDay))
+            .count();
+        analytics.put("bookingsToday", bookingsToday);
+
+        // pendingApprovals: xe chờ admin duyệt
+        long pendingApprovals = allVehicles.stream()
+            .filter(v -> v.getStatus() == Vehicle.VehicleStatus.PendingApproval)
+            .count();
+        analytics.put("pendingApprovals", pendingApprovals);
+        // ────────────────────────────────────────────────────────────────────
+
         // Vehicle statistics
         Map<String, Object> vehicleStats = vehicleService.getVehicleStatistics();
         analytics.putAll(vehicleStats);
-        
-        // Booking statistics
+
+        // Booking statistics (pendingBookings, activeBookings, cancelledBookings)
         Map<String, Object> bookingStats = bookingService.getBookingStatistics();
         analytics.putAll(bookingStats);
-        
+
+        // Booking chart analytics (includes monthlyRevenue for chart)
+        Map<String, Object> bookingAnalytics = bookingService.getBookingAnalytics();
+        analytics.putAll(bookingAnalytics);
+
         // System status
         analytics.put("systemStatus", "Online");
-        analytics.put("activeSessions", 1); // Mock data
         analytics.put("lastUpdated", LocalDateTime.now());
-        
+
         return analytics;
     }
     

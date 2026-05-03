@@ -1,12 +1,12 @@
 import axios from 'axios';
+import { AlertTriangle, CheckCircle2, Clock, CreditCard, RotateCcw, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { confirmBookingPaymentReturn } from '../../../api/bookingApi';
+import { Badge, Button, Card, CardContent, EmptyState, PageContainer, Skeleton } from '../../../design-system';
+import { BookingStepIndicator, formatCurrency } from '../../../features/booking';
 import type { ApiErrorResponse } from '../../../types/api';
 import type { PaymentReturnData } from '../../../types/booking';
-
-const formatCurrency = (value: number) =>
-  `${new Intl.NumberFormat('vi-VN').format(Math.round(value))} ₫`;
 
 const getApiErrorMessage = (error: unknown, fallback: string) => {
   if (!axios.isAxiosError<ApiErrorResponse>(error)) {
@@ -20,7 +20,6 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 const PaymentReturnPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PaymentReturnData | null>(null);
@@ -35,7 +34,7 @@ const PaymentReturnPage = () => {
     const load = async () => {
       if (!bookingId && !orderCode) {
         setLoading(false);
-        setError('Khong co thong tin giao dich de xac nhan thanh toan.');
+        setError('Không có thông tin giao dịch để xác nhận thanh toán.');
         return;
       }
 
@@ -51,7 +50,7 @@ const PaymentReturnPage = () => {
         });
         setResult(response);
       } catch (apiError) {
-        setError(getApiErrorMessage(apiError, 'Khong the xac nhan ket qua thanh toan.'));
+        setError(getApiErrorMessage(apiError, 'Không thể xác nhận kết quả thanh toán.'));
       } finally {
         setLoading(false);
       }
@@ -78,162 +77,149 @@ const PaymentReturnPage = () => {
   const displayBookingId = result?.bookingId ?? bookingId;
   const displayOrderCode = orderCode;
 
-  return (
-    <section className="min-h-[calc(100vh-160px)] bg-gradient-to-br from-indigo-500 to-fuchsia-700 py-8 px-4">
-      <div className="max-w-xl mx-auto">
-        <div className="bg-white rounded-[20px] shadow-2xl p-8 text-center">
-          {loading ? (
-            <div className="py-12">
-              <i className="fas fa-spinner fa-spin text-3xl text-gray-500 mb-4" />
-              <p className="text-gray-600">Dang xac nhan ket qua thanh toan...</p>
-            </div>
-          ) : null}
+  const stateConfig = {
+    success: {
+      title: 'Thanh toán thành công',
+      icon: CheckCircle2,
+      tone: 'success' as const,
+      iconClass: 'bg-primary-soft text-success',
+    },
+    warning: {
+      title: 'Đã hủy thanh toán',
+      icon: AlertTriangle,
+      tone: 'warning' as const,
+      iconClass: 'bg-muted text-warning',
+    },
+    error: {
+      title: 'Thanh toán thất bại',
+      icon: XCircle,
+      tone: 'danger' as const,
+      iconClass: 'bg-muted text-danger',
+    },
+  }[viewType];
 
-          {!loading && error ? (
-            <div>
-              <div className="w-24 h-24 mx-auto rounded-full bg-red-500 flex items-center justify-center mb-6 shadow-lg shadow-red-500/30">
-                <i className="fas fa-times text-4xl text-white" />
+  const StateIcon = stateConfig.icon;
+
+  return (
+    <section className="bg-canvas pb-16">
+      <PageContainer className="max-w-3xl space-y-8 py-10">
+        <BookingStepIndicator currentStep={3} />
+
+        {loading ? (
+          <Card>
+            <CardContent className="space-y-5 py-10 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                <Clock className="h-8 w-8 animate-pulse text-text-muted" aria-hidden="true" />
               </div>
-              <h1 className="text-3xl font-extrabold text-red-500 mb-4">Thanh toan that bai</h1>
-              <p className="text-gray-600 mb-8">{error}</p>
-              <div className="flex flex-wrap gap-3 justify-center">
+              <Skeleton className="mx-auto h-6 w-64" />
+              <Skeleton className="mx-auto h-4 w-80 max-w-full" />
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {!loading && error ? (
+          <EmptyState
+            tone="danger"
+            title="Không thể xác nhận thanh toán"
+            description={error}
+            action={
+              <div className="flex flex-wrap justify-center gap-3">
                 {displayBookingId ? (
                   <Link
                     to={`/booking/payment/${displayBookingId}`}
-                    className="inline-flex items-center px-6 py-3 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-danger px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                   >
-                    <i className="fas fa-redo mr-2" />
-                    Thu lai
+                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                    Thử lại
                   </Link>
                 ) : null}
                 <Link
                   to="/booking/my-bookings"
-                  className="inline-flex items-center px-6 py-3 rounded-lg border-2 border-green-500 text-green-600 hover:bg-green-50 font-semibold"
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-text-strong transition-colors hover:bg-muted"
                 >
-                  <i className="fas fa-arrow-left mr-2" />
-                  Quay lai
+                  Quay lại danh sách
                 </Link>
               </div>
-            </div>
-          ) : null}
+            }
+          />
+        ) : null}
 
-          {!loading && !error && result ? (
-            <>
-              <div
-                className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-6 ${
-                  viewType === 'success'
-                    ? 'bg-green-500 shadow-lg shadow-green-500/30'
-                    : viewType === 'warning'
-                      ? 'bg-amber-500 shadow-lg shadow-amber-500/30'
-                      : 'bg-red-500 shadow-lg shadow-red-500/30'
-                }`}
-              >
-                <i
-                  className={`text-4xl text-white ${
-                    viewType === 'success'
-                      ? 'fas fa-check'
-                      : viewType === 'warning'
-                        ? 'fas fa-exclamation'
-                        : 'fas fa-times'
-                  }`}
-                />
+        {!loading && !error && result ? (
+          <Card>
+            <CardContent className="space-y-6 py-8 text-center">
+              <div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full ${stateConfig.iconClass}`}>
+                <StateIcon className="h-10 w-10" aria-hidden="true" />
               </div>
 
-              <h1
-                className={`text-3xl font-extrabold mb-4 ${
-                  viewType === 'success'
-                    ? 'text-green-500'
-                    : viewType === 'warning'
-                      ? 'text-amber-500'
-                      : 'text-red-500'
-                }`}
-              >
-                {viewType === 'success'
-                  ? 'Thanh toan thanh cong!'
-                  : viewType === 'warning'
-                    ? 'Da huy thanh toan'
-                    : 'Thanh toan that bai'}
-              </h1>
-
-              <p className="text-gray-600 mb-8">{result.message}</p>
+              <div className="space-y-2">
+                <Badge tone={stateConfig.tone} size="md">{stateConfig.title}</Badge>
+                <h1 className="text-3xl font-bold text-text-strong">{stateConfig.title}</h1>
+                <p className="mx-auto max-w-xl text-text-muted">{result.message}</p>
+              </div>
 
               {viewType === 'success' && (result.paidAmount ?? 0) > 0 ? (
-                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 mb-6">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                    So tien da thanh toan
-                  </div>
-                  <div className="text-4xl font-extrabold text-green-600">
-                    {formatCurrency(result.paidAmount ?? 0)}
-                  </div>
+                <div className="rounded-xl border border-primary/20 bg-primary-soft p-5">
+                  <p className="text-sm font-medium text-text-muted">Số tiền đã thanh toán</p>
+                  <p className="mt-1 text-3xl font-bold text-primary">{formatCurrency(result.paidAmount ?? 0)}</p>
                 </div>
               ) : null}
 
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-left mb-6">
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="text-sm font-semibold text-gray-500">Ma don hang</span>
-                  <span className="text-sm font-bold text-gray-900">{result.bookingCode}</span>
+              <div className="rounded-xl border border-border bg-muted p-5 text-left">
+                <div className="divide-y divide-border text-sm">
+                  <div className="flex justify-between gap-4 py-2">
+                    <span className="text-text-muted">Mã đơn hàng</span>
+                    <span className="text-right font-semibold text-text-strong">{result.bookingCode}</span>
+                  </div>
+                  {displayOrderCode ? (
+                    <div className="flex justify-between gap-4 py-2">
+                      <span className="text-text-muted">Mã giao dịch</span>
+                      <span className="text-right font-semibold text-text-strong">{displayOrderCode}</span>
+                    </div>
+                  ) : null}
+                  {viewType === 'success' && (result.totalAmount ?? 0) > 0 ? (
+                    <div className="flex justify-between gap-4 py-2">
+                      <span className="text-text-muted">Tổng tiền đơn</span>
+                      <span className="text-right font-semibold text-text-strong">{formatCurrency(result.totalAmount ?? 0)}</span>
+                    </div>
+                  ) : null}
+                  {viewType === 'success' && (result.remainingAmount ?? 0) >= 0 ? (
+                    <div className="flex justify-between gap-4 py-2">
+                      <span className="text-text-muted">Còn lại</span>
+                      <span className="text-right font-semibold text-text-strong">{formatCurrency(result.remainingAmount ?? 0)}</span>
+                    </div>
+                  ) : null}
                 </div>
-                {displayOrderCode ? (
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                    <span className="text-sm font-semibold text-gray-500">Ma giao dich</span>
-                    <span className="text-sm font-bold text-gray-900">{displayOrderCode}</span>
-                  </div>
-                ) : null}
-                {viewType === 'success' && (result.totalAmount ?? 0) > 0 ? (
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                    <span className="text-sm font-semibold text-gray-500">Tong tien don</span>
-                    <span className="text-sm font-bold text-gray-900">{formatCurrency(result.totalAmount ?? 0)}</span>
-                  </div>
-                ) : null}
-                {viewType === 'success' && (result.remainingAmount ?? 0) >= 0 ? (
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm font-semibold text-gray-500">Con lai</span>
-                    <span className="text-sm font-bold text-gray-900">{formatCurrency(result.remainingAmount ?? 0)}</span>
-                  </div>
-                ) : null}
               </div>
 
-              <div className="flex flex-wrap gap-3 justify-center">
+              <div className="flex flex-wrap justify-center gap-3">
                 {viewType === 'success' && displayBookingId ? (
                   <Link
                     to={`/booking/confirmation/${displayBookingId}`}
-                    className="inline-flex items-center px-6 py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
                   >
-                    <i className="fas fa-check-circle mr-2" />
-                    Xem chi tiet don hang
+                    <CreditCard className="h-4 w-4" aria-hidden="true" />
+                    Xem chi tiết đơn hàng
                   </Link>
                 ) : null}
 
                 {(viewType === 'error' || viewType === 'warning') && displayBookingId ? (
                   <Link
                     to={`/booking/payment/${displayBookingId}`}
-                    className={`inline-flex items-center px-6 py-3 rounded-lg text-white font-semibold ${
-                      viewType === 'warning'
-                        ? 'bg-amber-500 hover:bg-amber-600'
-                        : 'bg-red-500 hover:bg-red-600'
-                    }`}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-warning px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                   >
-                    <i className="fas fa-redo mr-2" />
-                    Thanh toan lai
+                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                    Thanh toán lại
                   </Link>
                 ) : null}
 
-                <Link
-                  to="/booking/my-bookings"
-                  className={`inline-flex items-center px-6 py-3 rounded-lg border-2 font-semibold ${
-                    viewType === 'warning'
-                      ? 'border-amber-600 text-amber-700 hover:bg-amber-50'
-                      : 'border-green-500 text-green-600 hover:bg-green-50'
-                  }`}
-                >
-                  <i className="fas fa-list mr-2" />
-                  Xem tat ca don hang
-                </Link>
+                <Button type="button" variant="outline" onClick={() => navigate('/booking/my-bookings')}>
+                  Xem tất cả đơn hàng
+                </Button>
               </div>
-            </>
-          ) : null}
-        </div>
-      </div>
+            </CardContent>
+          </Card>
+        ) : null}
+      </PageContainer>
     </section>
   );
 };

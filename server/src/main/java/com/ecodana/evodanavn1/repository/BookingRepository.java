@@ -76,6 +76,18 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
             "GROUP BY YEAR(b.CreatedDate), MONTH(b.CreatedDate) ORDER BY year DESC, month DESC", nativeQuery = true)
     List<Map<String, Object>> findMonthlyRevenue(@Param("startDate") java.time.LocalDateTime startDate);
 
+    @Query(value = "SELECT DATE_FORMAT(b.CreatedDate, '%Y-%m-%d') as date, SUM(b.TotalAmount) as revenue " +
+            "FROM Booking b WHERE b.Status IN ('Approved', 'Completed') " +
+            "AND b.CreatedDate >= :startDate " +
+            "GROUP BY DATE_FORMAT(b.CreatedDate, '%Y-%m-%d') ORDER BY date ASC", nativeQuery = true)
+    List<Map<String, Object>> findDailyRevenue(@Param("startDate") java.time.LocalDateTime startDate);
+
+    @Query(value = "SELECT YEAR(b.CreatedDate) as year, SUM(b.TotalAmount) as revenue " +
+            "FROM Booking b WHERE b.Status IN ('Approved', 'Completed') " +
+            "AND b.CreatedDate >= :startDate " +
+            "GROUP BY YEAR(b.CreatedDate) ORDER BY year ASC", nativeQuery = true)
+    List<Map<String, Object>> findYearlyRevenue(@Param("startDate") java.time.LocalDateTime startDate);
+
     @Query(value = "SELECT v.VehicleModel as model, COUNT(b.BookingId) as bookingCount " +
             "FROM Booking b " +
             "JOIN Vehicle v ON b.VehicleId = v.VehicleId " +

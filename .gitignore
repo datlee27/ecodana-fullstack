@@ -114,7 +114,7 @@ storage/
 temp/
 
 # Generated documentation
-docs/generated/
+docs/
 
 # OS generated files
 .DS_Store
@@ -125,3 +125,8 @@ docs/generated/
 ehthumbs.db
 Thumbs.db
 .docs
+.gitnexus
+.mcp.json
+.claude/
+AGENTS.md
+CLAUDE.md

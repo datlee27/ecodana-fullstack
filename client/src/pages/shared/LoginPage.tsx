@@ -46,8 +46,11 @@ const LoginPage = () => {
       const roleHome = getRoleHomePath(loggedInUser);
       const redirectTo = (location.state as { from?: string } | null)?.from ?? roleHome;
       navigate(redirectTo, { replace: true });
-    } catch {
-      const message = 'Invalid username or password. Please try again.';
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Đăng nhập thất bại. Vui lòng thử lại.';
       notifyError(message);
     }
   };

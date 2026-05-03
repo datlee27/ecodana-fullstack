@@ -1,11 +1,45 @@
+@import './styles/theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── Elegant thin scrollbar — invisible until hover ── */
+.scrollbar-elegant::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-elegant::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-elegant::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+.scrollbar-elegant:hover::-webkit-scrollbar-thumb {
+  background: #cbd5e180;
+}
+
+.scrollbar-elegant:hover::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Firefox */
+.scrollbar-elegant {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.scrollbar-elegant:hover {
+  scrollbar-color: #cbd5e180 transparent;
+}
+
 :root {
-  --primary-color: #4caf50;
-  --accent-color: #45a049;
-  font-family: 'Be Vietnam Pro', sans-serif;
+  font-family: var(--ds-font-sans);
 }
 
 .nav-font-poppins {
@@ -66,8 +100,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #f9fafb;
-  color: #484848;
+  background-color: var(--ds-color-canvas);
+  color: var(--ds-color-text);
   line-height: 1.6;
 }
 

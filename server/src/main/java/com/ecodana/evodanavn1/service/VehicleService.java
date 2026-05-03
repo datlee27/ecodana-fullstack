@@ -11,6 +11,8 @@ import com.ecodana.evodanavn1.repository.VehicleCategoryRepository;
 import com.ecodana.evodanavn1.repository.VehicleRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,8 @@ import java.util.stream.Stream;
 
 @Service
 public class VehicleService {
+
+    private static final Logger logger = LoggerFactory.getLogger(VehicleService.class);
 
     @Autowired
     private VehicleRepository vehicleRepository;
@@ -350,9 +354,7 @@ public class VehicleService {
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
         
         // Log current status for debugging
-        System.out.println("=== Approving Vehicle ===");
-        System.out.println("Vehicle ID: " + vehicleId);
-        System.out.println("Current Status: " + vehicle.getStatus());
+        logger.debug("[VEHICLE-APPROVE] ID={}, Status={}", vehicleId, vehicle.getStatus());
         
         // Only prevent approval if already Available or Rented
         if (vehicle.getStatus() == Vehicle.VehicleStatus.Available) {
@@ -375,7 +377,7 @@ public class VehicleService {
                     // Grant Owner role
                     owner.setRoleId(ownerRole.getRoleId());
                     userService.save(owner);
-                    System.out.println("Granted Owner role to user: " + owner.getUsername());
+                    logger.debug("[VEHICLE-APPROVE] Granted Owner role to user: {}", owner.getUsername());
                 }
             } catch (Exception e) {
                 System.err.println("Failed to grant Owner role: " + e.getMessage());
@@ -385,7 +387,7 @@ public class VehicleService {
         
         vehicle.setStatus(Vehicle.VehicleStatus.Available);
         Vehicle saved = vehicleRepository.save(vehicle);
-        System.out.println("New Status: " + saved.getStatus());
+        logger.debug("[VEHICLE-APPROVE] ID={}, NewStatus={}", vehicleId, saved.getStatus());
         return saved;
     }
 
@@ -398,10 +400,7 @@ public class VehicleService {
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
         
         // Log current status for debugging
-        System.out.println("=== Rejecting Vehicle ===");
-        System.out.println("Vehicle ID: " + vehicleId);
-        System.out.println("Current Status: " + vehicle.getStatus());
-        System.out.println("Reason: " + reason);
+        logger.debug("[VEHICLE-REJECT] ID={}, Status={}, Reason={}", vehicleId, vehicle.getStatus(), reason);
         
         // Cannot reject if already rented
         if (vehicle.getStatus() == Vehicle.VehicleStatus.Rented) {
@@ -410,7 +409,7 @@ public class VehicleService {
         
         vehicle.setStatus(Vehicle.VehicleStatus.Unavailable);
         Vehicle saved = vehicleRepository.save(vehicle);
-        System.out.println("New Status: " + saved.getStatus());
+        logger.debug("[VEHICLE-REJECT] ID={}, NewStatus={}", vehicleId, saved.getStatus());
         return saved;
     }
 }

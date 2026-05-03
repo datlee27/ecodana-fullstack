@@ -236,14 +236,22 @@ public class BookingService {
         try {
             LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
             analytics.put("dailyBookings", bookingRepository.findDailyBookings(sevenDaysAgo));
+            analytics.put("dailyRevenue", bookingRepository.findDailyRevenue(sevenDaysAgo));
         } catch (Exception e) {
             analytics.put("dailyBookings", List.of());
+            analytics.put("dailyRevenue", List.of());
         }
         try {
             LocalDateTime sixMonthsAgo = LocalDateTime.now().minusMonths(6);
             analytics.put("monthlyRevenue", bookingRepository.findMonthlyRevenue(sixMonthsAgo));
         } catch (Exception e) {
             analytics.put("monthlyRevenue", List.of());
+        }
+        try {
+            LocalDateTime fiveYearsAgo = LocalDateTime.now().minusYears(5);
+            analytics.put("yearlyRevenue", bookingRepository.findYearlyRevenue(fiveYearsAgo));
+        } catch (Exception e) {
+            analytics.put("yearlyRevenue", List.of());
         }
         try {
             analytics.put("vehiclePopularity", bookingRepository.findVehiclePopularity());
@@ -685,7 +693,7 @@ public class BookingService {
         }
 
         // Tìm tất cả payment (Completed hoặc Pending - cả hai đều có thể hoàn tiền)
-        List<Payment> payments = paymentRepository.findByBookingId(bookingId); // Dòng này đã được thêm vào
+        List<Payment> payments = paymentRepository.findByBookingId(bookingId);
         List<Payment> refundablePayments = payments.stream()
                 .filter(p -> p.getPaymentStatus() == Payment.PaymentStatus.Completed ||
                         p.getPaymentStatus() == Payment.PaymentStatus.Pending)
@@ -693,49 +701,12 @@ public class BookingService {
                         p.getPaymentType() == Payment.PaymentType.FinalPayment)
                 .toList();
 
-        System.out.println("=== REFUND CALCULATION DEBUG ===");
-        System.out.println("Booking ID: " + bookingId);
-        System.out.println("Total payments found: " + payments.size());
-        System.out.println("Refundable payments (Completed or Pending): " + refundablePayments.size());
+        logger.debug("[REFUND-CALC] Booking={}, Payments={}, Refundable={}",
+                bookingId, payments.size(), refundablePayments.size());
 
-        for (Payment payment : refundablePayments) {
-            System.out.println("Payment: " + payment.getPaymentId() + ", Amount: " + payment.getAmount() +
-                    ", Type: " + payment.getPaymentType() + ", Status: " + payment.getPaymentStatus());
-        }
-
-        if (refundablePayments.isEmpty()) {
-            System.out.println("WARNING: No refundable payments found, but booking status is Confirmed");
-
-            // Fallback: Change to RefundPending for admin review
-            booking.setStatus(Booking.BookingStatus.RefundPending);
-            booking.setCancelReason(reason + " | Không tìm thấy giao dịch thanh toán. Chờ admin xử lý.");
-            bookingRepository.save(booking);
-            updateVehicleStatusOnBookingCompletionOrCancellation(booking.getVehicle());
-
-            // Tạo RefundRequest để admin xử lý (với refund amount = 0, admin sẽ xử lý thủ
-            // công)
-            try {
-                RefundRequest refundRequest = refundRequestService.createRefundRequest(booking, canceller, reason,
-                        bankAccountId, BigDecimal.ZERO);
-                System.out.println("RefundRequest created (no payments): " + refundRequest.getRefundRequestId());
-                result.put("refundRequestId", refundRequest.getRefundRequestId());
-            } catch (Exception e) {
-                System.out.println("Error creating RefundRequest: " + e.getMessage());
-                e.printStackTrace();
-            }
-
-            // Notify admin
-            notificationService.notifyAdminRefundRequest(booking, BigDecimal.ZERO,
-                    "Không tìm thấy giao dịch thanh toán hoàn tất. Vui lòng kiểm tra và xử lý thủ công.");
-
-            result.put("success", true);
-            result.put("message",
-                    "Đã gửi yêu cầu hủy xe đến admin để xử lý. Không tìm thấy giao dịch thanh toán để hoàn tiền.");
-            return result;
-        }
-
+        // Calculate hours since payment
         long hoursSincePayment = Duration.between(paymentTime, now).toHours();
-        System.out.println("Hours since payment: " + hoursSincePayment);
+        logger.debug("[REFUND-CALC] Hours since payment: {}", hoursSincePayment);
 
         // Tính hoàn tiền cho từng loại payment
         BigDecimal totalRefundAmount = BigDecimal.ZERO;
@@ -765,7 +736,7 @@ public class BookingService {
             }
             refundMessageBuilder.append(paymentRefundMessage);
 
-            System.out.println("Payment type: " + payment.getPaymentType() + ", Refund: " + paymentRefundAmount);
+            logger.debug("[REFUND-CALC] Payment type={}, Refund={}", payment.getPaymentType(), paymentRefundAmount);
         }
 
         String refundMessage = refundMessageBuilder.toString();
@@ -775,13 +746,7 @@ public class BookingService {
             refundMessage = "Hủy sau 2 giờ. " + refundMessage;
         }
 
-        System.out.println("Total refund amount: " + totalRefundAmount);
-        System.out.println("Refund message: " + refundMessage);
-
-        // Đảm bảo số tiền hoàn không bị âm
-        if (totalRefundAmount.compareTo(BigDecimal.ZERO) < 0) {
-            totalRefundAmount = BigDecimal.ZERO;
-        }
+        logger.debug("[REFUND-CALC] Total refund amount={}, Message={}", totalRefundAmount, refundMessage);
 
         // Cập nhật trạng thái Booking thành RefundPending (chờ admin duyệt)
         booking.setStatus(Booking.BookingStatus.RefundPending);
@@ -795,38 +760,17 @@ public class BookingService {
         try {
             RefundRequest refundRequest = refundRequestService.createRefundRequest(booking, canceller, reason,
                     bankAccountId, totalRefundAmount);
-            System.out.println("RefundRequest created: " + refundRequest.getRefundRequestId());
+            logger.debug("[REFUND-CALC] RefundRequest created: {}", refundRequest.getRefundRequestId());
             result.put("refundRequestId", refundRequest.getRefundRequestId());
         } catch (Exception e) {
-            System.out.println("Error creating RefundRequest: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("[REFUND-CALC] Error creating RefundRequest: {}", e.getMessage(), e);
             // Vẫn tiếp tục, RefundRequest có thể được tạo sau từ sync endpoint
         }
-
-        // Gửi thông báo cho admin về yêu cầu hoàn tiền
-        notificationService.notifyAdminRefundRequest(booking, totalRefundAmount, refundMessage);
 
         result.put("success", true);
         result.put("message", "Đã gửi yêu cầu hủy xe đến admin. " + refundMessage + " Số tiền hoàn dự kiến: "
                 + totalRefundAmount.setScale(0, RoundingMode.HALF_UP) + " ₫");
         return result;
-    }
-
-    @Deprecated
-    public Booking cancelCar(String bookingId, String reason) {
-        return bookingRepository.findById(bookingId)
-                .map(booking -> {
-                    // Set status back to Cancelled
-                    booking.setStatus(Booking.BookingStatus.Cancelled);
-                    booking.setCancelReason(reason);
-
-                    // Update vehicle status back to Available when car is cancelled after payment
-                    Booking updatedBooking = bookingRepository.save(booking);
-                    updateVehicleStatusOnBookingCompletionOrCancellation(booking.getVehicle());
-
-                    return updatedBooking;
-                })
-                .orElse(null);
     }
 
     /**
